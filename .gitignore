@@ -1,5 +1,5 @@
-# Exclude large/binary assets
-images/
+# Exclude large/binary assets (allow images for Pages deploy)
+# images/  # uncomment to exclude locally; keep committed for GitHub Pages
 
 # Backups/archives
 *.zip
