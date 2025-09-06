@@ -1,4 +1,4 @@
-﻿(() => {
+(() => {
   'use strict';
 
   // Constants (use Unicode escapes to avoid encoding issues in source)
@@ -43,7 +43,9 @@
   let selectedCategory = null; // string or null
   let progress = new Set(); // ids collected
   let storageKey = 'mokeke:v1:'; // finalized after list is loaded
-  let imageData = { regions: [], images: [] }; // 画像データ
+  let imageData = { regions: [], images: [] }; // image data
+  let lastListName = '';
+  let imageOverrides = {};
 
   // Utilities
   function djb2(str) {
@@ -60,6 +62,15 @@
   }
   function saveProgress() {
     localStorage.setItem(storageKey, JSON.stringify([...progress]));
+  }
+  function loadOverrides() {
+    try {
+      const json = localStorage.getItem(storageKey + ':imgOverrides');
+      imageOverrides = json ? JSON.parse(json) : {};
+    } catch { imageOverrides = {}; }
+  }
+  function saveOverrides() {
+    try { localStorage.setItem(storageKey + ':imgOverrides', JSON.stringify(imageOverrides || {})); } catch {}
   }
 
   function setStatus(msg) {
@@ -377,6 +388,8 @@
     els.countDone.textContent = String(done);
     els.countTodo.textContent = String(total - done);
 
+    filtered.sort((a,b)=> (b.order||0)-(a.order||0));
+    filtered.sort((a,b)=> (b.order||0)-(a.order||0));
     for (const it of filtered) {
       if (!it.image && imageData && imageData.images && imageData.images.length) {
         try {
@@ -384,6 +397,11 @@
           if (m) it.image = m;
         } catch {}
       }
+      try {
+        if (!it.image && imageOverrides && imageOverrides[it.id]) {
+          it.image = { path: imageOverrides[it.id], filename: (imageOverrides[it.id]||'').split('/').pop(), regionName: it.region };
+        }
+      } catch {}
       const li = document.createElement('li');
       li.className = 'item' + (progress.has(it.id) ? ' done' : '');
       const cb = document.createElement('input');
@@ -414,7 +432,11 @@
       label.innerHTML = `${imageHtml}<div>${escapeHtml(it.name)}${dateText}</div><small>${categoryText}</small>`;
       const thumbImg = label.querySelector('img');
       if (thumbImg) {
-        thumbImg.addEventListener('click', (e) => { e.stopPropagation(); try { showImage2(it); } catch { showImage(it); } });
+        thumbImg.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (e.shiftKey) { chooseOverrideForItem(it); return; }
+          try { showImage2(it); } catch { showImage(it); }
+        });
         thumbImg.style.cursor = 'pointer';
       }
       
@@ -424,6 +446,7 @@
       imageBtn.textContent = '画像';
       imageBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (e.shiftKey) { chooseOverrideForItem(it); return; }
         showImage2(it);
       });
       
@@ -438,6 +461,48 @@
   function sync() {
     renderCategories();
     renderItems();
+  }
+
+  function chooseOverrideForItem(item) {
+    try {
+      if (!imageData || !Array.isArray(imageData.images) || !imageData.images.length) { alert('画像データが読み込まれていません'); return; }
+      const kw = prompt('画像候補のキーワードを入力（例: 名称の一部）', (item.originalName || item.name || ''));
+      if (kw === null) return;
+      const q = kw.toLowerCase().trim();
+      const norm = (s)=> (s||'').toString().toLowerCase();
+      const pool = imageData.images.filter(img => {
+        const inRegion = !item.region || norm(img.regionName||img.prefecture||'').includes(norm(item.region));
+        const nameHit = norm(img.itemName).includes(q) || norm(img.filename).includes(q);
+        return inRegion && nameHit;
+      });
+      if (!pool.length) { alert('候補が見つかりません'); return; }
+      const top = pool.slice(0, 20);
+      const menu = top.map((img,i)=> `${i+1}: ${img.filename} [${img.regionName||''}] ${img.itemName||''}`).join('\n');
+      const pick = prompt(`候補を選んでください (1-${top.length})\n${menu}`, '1');
+      if (pick === null) return;
+      const idx = Math.max(1, Math.min(top.length, parseInt(pick,10)||1)) - 1;
+      const chosen = top[idx];
+      imageOverrides[item.id] = chosen.path;
+      try { localStorage.setItem(storageKey + ':imgOverrides', JSON.stringify(imageOverrides)); } catch {}
+      sync();
+      setStatus('画像を差し替えました');
+    } catch (e) { alert('画像差し替えでエラー: ' + e.message); }
+  }
+
+  function getListCandidates() {
+    return [
+      'mokekelist_latest.txt',
+      'mokekelist_lastest.txt',
+      'mokekelist_20250906.txt',
+      'mokekelist.txt'
+    ];
+  }
+  async function loadFirstAvailableList(cands) {
+    for (const name of cands) {
+      const txt = await loadFromRelativeFile(name);
+      if (txt && txt.trim()) { lastListName = name; return txt; }
+    }
+    return '';
   }
 
   async function loadFromRelativeFile(path) {
@@ -627,9 +692,9 @@
       });
     }
     if (els.btnShareLink) {
-      els.btnShareLink.addEventListener('click', async () => {
-        try {
-          const state = { list: 'mokekelist_20250906.txt', hash: storageKey.split(':').pop(), collected: [...progress] };
+    els.btnShareLink.addEventListener('click', async () => {
+      try {
+          const state = { list: lastListName || 'mokekelist_latest.txt', hash: storageKey.split(':').pop(), collected: [...progress] };
           const json = JSON.stringify(state);
           const b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
           const url = `${location.origin}${location.pathname}#s=${b64}`;
@@ -678,6 +743,7 @@
         return;
       }
       addDebugLog(`選択されたファイル: ${f.name} (${f.size} bytes)`);
+      try { lastListName = f.name || lastListName; } catch {}
       await handleListFile(f);
     });
 
@@ -726,6 +792,7 @@
     progress = new Set();
     usedImages.clear(); // 使用済み画像セットをリセット
     loadProgress();
+    loadOverrides();
     data = parseAuto(rawText);
     
     // 入手日があるアイテムを自動でチェック済みにする
@@ -819,8 +886,16 @@
       const prefectureNo = cols[2];  // 県NO
       const region = cols[3];        // 地域
       const color = cols[4];         // カラー区分
-      const name = cols[5];          // 名前
-      const acquiredDate = cols[6];  // 入手日
+      // 並び順列がある新フォーマットに対応（列数>=8）
+      let order = 0, name = '', acquiredDate = '';
+      if (cols.length >= 8) {
+        order = parseInt(cols[5], 10); if (!Number.isFinite(order)) order = 0;
+        name = cols[6];
+        acquiredDate = cols[7];
+      } else {
+        name = cols[5];
+        acquiredDate = cols[6];
+      }
 
       // カテゴリを構築
       majorCategories.add(majorCategory);
@@ -836,11 +911,11 @@
       
       if (!displayName) displayName = NAME_UNKNOWN;
 
-      const idSeed = (cols[0] || '') + '::' + majorCategory + '::' + minorCategory + '::' + name;
+      const idSeed = (cols[0] || '') + '::' + majorCategory + '::' + minorCategory + '::' + name + '::' + order;
       const id = djb2(idSeed);
       
       // 対応する画像を検索
-       const matchingImage = smartFindImage(displayName, region, color, prefectureNo);
+       const matchingImage = smartFindImage(displayName, region, color, prefectureNo, order);
       
       items.push({ 
         id, 
@@ -852,6 +927,7 @@
         minorCategory: minorCategory, // 中分類
         category: `${majorCategory} > ${minorCategory}`, // 階層表示用
         prefectureNo: prefectureNo,
+        order: order,
         acquiredDate: acquiredDate,
         isAcquired: !!acquiredDate && acquiredDate.trim() !== '', // 入手日がある場合は取得済み
         image: matchingImage // 対応する画像情報
@@ -1052,7 +1128,7 @@
   }
 
   // Fallback/robust matcher using regionName as well
-  function smartFindImage(displayName, region, color, prefectureNo) {
+  function smartFindImage(displayName, region, color, prefectureNo, order) {
     try {
       if (typeof findMatchingImage === 'function') {
         const first = findMatchingImage(displayName, region, color, prefectureNo);
@@ -1095,6 +1171,7 @@
       }) || null;
     };
 
+    if (order && regionImages.length) { const pat = _{String(order)}_; regionImages = regionImages.sort((x,y)=> ((y.filename||'').includes(pat)?1:0)-(((x.filename||'').includes(pat)?1:0))); }
     let m = tryNameMatch(regionImages);
     if (m) { usedImages.add(m.filename); return m; }
 
@@ -1138,6 +1215,7 @@
   function findImageForItem(item) {
     try {
       if (item && item.image && item.image.path) return item.image.path;
+      if (imageOverrides && imageOverrides[item.id]) return imageOverrides[item.id];
       if (typeof findMatchingImage === 'function' && imageData && imageData.images && imageData.images.length) {
         const m = smartFindImage(item.name || item.originalName || '', item.region || '', item.color || '', item.prefectureNo || '');
         if (m && m.path) return m.path;
@@ -1324,7 +1402,7 @@ function getRegionFolder(region) {
     addDebugLog('events: ready');
 
   // 画像データのプリロード
-loadImageDataCsv().then((res) => {
+loadImageDataCsv().then(async (res) => {
 try {
 const src = (res && res.images) ? res : (window && window.mokekeImageData ? window.mokekeImageData : null);
 if (src && Array.isArray(src.images)) {
@@ -1348,7 +1426,16 @@ imageData.images = augmented;
 imageData.regions = [...new Set(augmented.map(it => it.regionName || it.prefecture).filter(Boolean))].sort();
 }
 } catch {}
-sync();
+sync();\r\n    // Try default list on boot
+    let hasAnyProgress = false;
+    try { hasAnyProgress = Object.keys(localStorage).some(k => k.startsWith('mokeke:v1:')); } catch {}
+    if (!data.items || data.items.length === 0) {
+      const candidates = ['mokekelist_latest.txt','mokekelist_lastest.txt','mokekelist_20250906.txt','mokekelist.txt'];
+      for (const name of candidates) {
+        const t = await loadFromRelativeFile(name);
+        if (t && t.trim()) { lastListName = name; setupListWithOptions(t, { overwriteProgress: !hasAnyProgress, allUnchecked: !hasAnyProgress }); break; }
+      }
+    }
 });
 
   // 共有リンクとキャッシュ有無で起動挙動を分岐
@@ -1398,7 +1485,7 @@ async function boot2() {
     try { addDebugLog(`els.${key}: ${element ? 'ok' : 'missing'}`); } catch {}
   }
   initEvents();
-  loadImageDataCsv().then((res) => {
+  loadImageDataCsv().then(async (res) => {
     try {
       const src = (res && res.images) ? res : (window && window.mokekeImageData ? window.mokekeImageData : null);
       if (src && Array.isArray(src.images)) {
