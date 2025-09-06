@@ -1,31 +1,30 @@
-name: Deploy to GitHub Pages
+﻿name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ["main"]   # masterなら "master"
+    branches: [ main, master ]
+  workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write           # これ大事
-  id-token: write        # これも大事（OIDC）
+  pages: write
+  id-token: write
 
 concurrency:
-  group: "pages"
-  cancel-in-progress: true
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # _site/ がリポジトリに元からあるならこのステップは不要。
-      # ない場合の保険として、手元のファイルを _site に集めます。
       - name: Prepare _site
         shell: bash
         run: |
+          set -euxo pipefail
           mkdir -p _site
           [ -f index.html ] && cp -v index.html _site/
           [ -f styles.css ] && cp -v styles.css _site/
@@ -34,10 +33,13 @@ jobs:
           [ -f image_data.csv ] && cp -v image_data.csv _site/ || true
           shopt -s nullglob
           for f in mokekelist*.txt; do cp -v "$f" _site/; done
-          [ -d images ] && cp -vr images _site/
+          if [ -d images ]; then
+            mkdir -p _site/images
+            cp -R images/. _site/images/
+          fi
+          # Prevent Jekyll processing
           touch _site/.nojekyll
 
-      # ここから“正攻法”の3ステップ
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
@@ -47,5 +49,5 @@ jobs:
           path: _site
 
       - name: Deploy to GitHub Pages
-        id: deploy
+        id: deployment
         uses: actions/deploy-pages@v4
