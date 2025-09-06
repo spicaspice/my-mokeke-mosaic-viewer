@@ -389,7 +389,6 @@
     els.countTodo.textContent = String(total - done);
 
     filtered.sort((a,b)=> (b.order||0)-(a.order||0));
-    filtered.sort((a,b)=> (b.order||0)-(a.order||0));
     for (const it of filtered) {
       if (!it.image && imageData && imageData.images && imageData.images.length) {
         try {
@@ -1171,7 +1170,14 @@
       }) || null;
     };
 
-    if (order && regionImages.length) { const pat = _{String(order)}_; regionImages = regionImages.sort((x,y)=> ((y.filename||'').includes(pat)?1:0)-(((x.filename||'').includes(pat)?1:0))); }
+    if (order && regionImages.length) {
+      const pat = '_' + String(order) + '_';
+      regionImages = regionImages.slice().sort((x,y)=> {
+        const ya = ((y.filename||'').includes(pat)?1:0);
+        const xa = ((x.filename||'').includes(pat)?1:0);
+        return ya - xa;
+      });
+    }
     let m = tryNameMatch(regionImages);
     if (m) { usedImages.add(m.filename); return m; }
 
