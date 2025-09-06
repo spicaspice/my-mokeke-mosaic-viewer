@@ -15,6 +15,7 @@
     countDone: document.getElementById('countDone'),
     countTodo: document.getElementById('countTodo'),
     btnExport: document.getElementById('btnExport'),
+    btnShareLink: document.getElementById('btnShareLink'),
     btnLoadList: document.getElementById('btnLoadList'),
     importState: document.getElementById('importState'),
     loadList: document.getElementById('loadList'),
@@ -585,6 +586,20 @@
       a.click();
       URL.revokeObjectURL(a.href);
     });
+    if (els.btnShareLink) {
+      els.btnShareLink.addEventListener('click', async () => {
+        try {
+          const state = { list: 'mokekelist_20250906.txt', hash: storageKey.split(':').pop(), collected: [...progress] };
+          const json = JSON.stringify(state);
+          const b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+          const url = `${location.origin}${location.pathname}#s=${b64}`;
+          await navigator.clipboard.writeText(url);
+          setStatus('共有リンクをクリップボードにコピーしました');
+        } catch (e) {
+          setStatus('共有リンクの作成に失敗しました');
+        }
+      });
+    }
     els.importState.addEventListener('change', async () => {
       const f = els.importState.files?.[0];
       if (!f) return;
