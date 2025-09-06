@@ -2,53 +2,50 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main, master ]
-  workflow_dispatch:
+    branches: ["main"]   # masterなら "master"
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
+  pages: write           # これ大事
+  id-token: write        # これも大事（OIDC）
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare site directory
+      # _site/ がリポジトリに元からあるならこのステップは不要。
+      # ない場合の保険として、手元のファイルを _site に集めます。
+      - name: Prepare _site
+        shell: bash
         run: |
-          set -eux
           mkdir -p _site
-          cp -v index.html styles.css app.js image_loader.js _site/
-          # Optional lists
-          [ -f mokekelist_20250906.txt ] && cp -v mokekelist_20250906.txt _site/ || true
-          [ -f mokekelist.txt ] && cp -v mokekelist.txt _site/ || true
-          # Image CSV and assets
+          [ -f index.html ] && cp -v index.html _site/
+          [ -f styles.css ] && cp -v styles.css _site/
+          [ -f app.js ] && cp -v app.js _site/
+          [ -f image_loader.js ] && cp -v image_loader.js _site/
           [ -f image_data.csv ] && cp -v image_data.csv _site/ || true
-          if [ -d images ]; then
-            mkdir -p _site/images
-            rsync -a --delete images/ _site/images/
-          fi
+          shopt -s nullglob
+          for f in mokekelist*.txt; do cp -v "$f" _site/; done
+          [ -d images ] && cp -vr images _site/
+          touch _site/.nojekyll
+
+      # ここから“正攻法”の3ステップ
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
       - name: Deploy to GitHub Pages
-        id: deployment
+        id: deploy
         uses: actions/deploy-pages@v4
-
