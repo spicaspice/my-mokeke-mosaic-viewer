@@ -1,0 +1,18 @@
+# Exclude large/binary assets
+images/
+
+# Backups/archives
+*.zip
+*.7z
+*.tar
+*.tar.gz
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.log
+
+# Node/npm cache (if ever used)
+node_modules/
+dist/
+build/

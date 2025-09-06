@@ -1,0 +1,164 @@
+﻿<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Mokeke コレクション管理</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>Mokeke コレクション管理</h1>
+      <div class="controls">
+        <input id="search" class="search" type="search" placeholder="検索 (地域・名前・カラー区分)" />
+        <select id="statusFilter" class="select">
+          <option value="all">すべて</option>
+          <option value="todo">未取得</option>
+          <option value="done">取得済み</option>
+        </select>
+        <button id="btnExport" class="btn" title="進捗をエクスポート">エクスポート</button>
+        <label class="btn btn-secondary" title="進捗をインポート">
+          インポート
+          <input id="importState" type="file" accept="application/json" hidden />
+        </label>
+        <button id="btnLoadList" class="btn btn-secondary" title="ローカルのリストファイルを読み込み (file:// 対応)">リスト読込</button>
+        <input id="loadList" type="file" accept=".txt,.tsv,text/plain,text/tab-separated-values" hidden />
+      </div>
+    </header>
+
+    <main class="app-main">
+      <aside class="sidebar">
+        <div class="sidebar-head">
+          <strong>カテゴリ</strong>
+          <button id="clearFilter" class="link">クリア</button>
+        </div>
+        <ul id="categoryList" class="categories"></ul>
+      </aside>
+
+      <section class="content">
+        <div class="summary">
+          <span id="countTotal">0</span> 件中
+          <span id="countDone">0</span> 件 取得済み /
+          <span id="countTodo">0</span> 件 未取得
+        </div>
+        <div id="imageViewer" class="image-viewer" style="display:none;">
+          <div class="image-viewer-header">
+            <h3 id="imageTitle">画像表示</h3>
+            <button id="closeImageViewer" class="btn btn-secondary">×</button>
+          </div>
+          <div class="image-container">
+            <img id="mainImage" src="" alt="" />
+          </div>
+          <div class="image-info">
+            <p id="imageInfo"></p>
+          </div>
+        </div>
+        <div id="dropZone" style="margin:8px 0;padding:10px;border:1px dashed #263045;border-radius:8px;color:#c7d2e3;background:#0b1020">
+          リストファイルをここにドラッグ＆ドロップ、またはクリックして選択
+        </div>
+        <details class="paste-area" style="margin:8px 0;border:1px solid #263045;border-radius:8px;background:#0b1020">
+          <summary style="padding:10px;cursor:pointer;color:#c7d2e3;font-size:14px;list-style:none;user-select:none;">
+            <span style="margin-right:8px;">▶</span>または、リスト内容を直接貼り付け
+          </summary>
+          <div style="padding:0 10px 10px 10px;">
+            <textarea id="pasteText" placeholder="mokekelist.txt の内容をここに貼り付けてください..." style="width:100%;height:120px;padding:8px;border:1px solid #263045;border-radius:4px;background:#1a1f2e;color:#c7d2e3;font-family:monospace;font-size:12px;resize:vertical;">大分類番号	中分類名	県NO	地域	カラー区分	名前	入手日
+01_北海道モケケ	01_北海道	001	北海道	青	宗谷岬	
+01_北海道モケケ	01_北海道	001	北海道	黄	狸小路	
+01_北海道モケケ	01_北海道	001	北海道	赤	クリオネ ピンクN	
+01_北海道モケケ	01_北海道	001	北海道	青	クリオネN	
+01_北海道モケケ	01_北海道	001	北海道	赤	あずき	
+01_北海道モケケ	01_北海道	001	北海道	緑	アスパラガス	
+01_北海道モケケ	01_北海道	001	北海道	黃	エゾリス	
+01_北海道モケケ	01_北海道	001	北海道	黃	エゾシカ	
+01_北海道モケケ	01_北海道	001	北海道	黃	ビール	
+01_北海道モケケ	01_北海道	001	北海道	総柄	シマエナガ　総柄	
+01_北海道モケケ	01_北海道	001	北海道	黃	ザンギ	
+01_北海道モケケ	01_北海道	001	北海道	黃	チーズ	
+01_北海道モケケ	01_北海道	001	北海道	赤 ピンク	登別鬼　赤	
+01_北海道モケケ	01_北海道	001	北海道	白？	ホルスタイン	
+01_北海道モケケ	01_北海道	001	北海道	黃	ウニ	
+01_北海道モケケ	01_北海道	001	北海道	白	丹頂鶴	
+01_北海道モケケ	01_北海道	001	北海道	黃	クラーク	
+01_北海道モケケ	01_北海道	001	北海道	黃	しゃけ	
+01_北海道モケケ	01_北海道	001	北海道	白	シマエナガ	
+01_北海道モケケ	01_北海道	001	北海道	黃	じゃがいも	
+01_北海道モケケ	01_北海道	001	北海道	グレー	ししゃも	
+01_北海道モケケ	01_北海道	001	北海道	白	ほたて	
+01_北海道モケケ	01_北海道	001	北海道	赤 ピンク	いくら	
+01_北海道モケケ	01_北海道	001	北海道	青	流氷	
+01_北海道モケケ	01_北海道	001	北海道	黃	ラーメン	
+01_北海道モケケ	01_北海道	001	北海道	赤 ピンク	豚丼	
+01_北海道モケケ	01_北海道	001	北海道	黃	ナキウサギ	
+01_北海道モケケ	01_北海道	001	北海道	白	雪うさぎ　LL	2019/02/22
+01_北海道モケケ	01_北海道	001	北海道	白	雪うさぎ	2019/02/22
+01_北海道モケケ	01_北海道	001	北海道	総柄	函館夜景　総柄	2018/07/01
+01_北海道モケケ	01_北海道	001	北海道	総柄	クリオネ　総柄	2018/07/01
+01_北海道モケケ	01_北海道	001	北海道	総柄	地図　総柄	2018/07/01
+01_北海道モケケ	01_北海道	001	北海道	白	シロクマ	2018/07/01
+01_北海道モケケ	01_北海道	001	北海道	黃	キタキツネ	2018/07/01
+01_北海道モケケ	01_北海道	001	北海道	赤	かに	2018/07/01
+01_北海道モケケ	01_北海道	001	北海道	黒	函館	2018/07/01
+01_北海道モケケ	01_北海道	001	北海道	赤	クリオネピンク	2018/07/01
+01_北海道モケケ	01_北海道	001	北海道	緑	メロン	2018/07/01
+01_北海道モケケ	01_北海道	001	北海道	白	ジンギスカン	2018/07/01
+01_北海道モケケ	01_北海道	001	北海道	緑	まりも	2018/07/01
+01_北海道モケケ	01_北海道	001	北海道	青	ラベンダー	2018/07/01
+01_北海道モケケ	01_北海道	001	北海道	青	クリオネ	2018/07/01
+01_北海道モケケ	01_北海道	001	北海道	黃	とうきび	2018/07/01
+01_北海道モケケ	01_北海道	001	北海道	茶	ひぐま	○
+01_北海道モケケ	01_北海道	001	北海道	白	牛	○</textarea>
+            <button id="btnPasteLoad" class="btn btn-secondary" style="margin-top:8px;">貼り付け内容を読み込み</button>
+            <button id="btnTest" class="btn" style="margin-top:8px;background:#ff6b6b;">テスト用ボタン（クリックして動作確認）</button>
+          </div>
+        </details>
+        <ul id="itemList" class="items"></ul>
+
+        <details class="help" id="helpBox">
+          <summary>mokekelist.txt の書き方 (例)</summary>
+          <pre><code># 行頭の # はコメント
+# 空行は無視されます
+
+# タブ区切りの表形式 (TSV) で記述します。例:
+大分類番号	中分類名	県NO	地域	カラー区分	名前	入手日
+01_北海道モケケ	01_北海道	001	北海道	青	宗谷岬	
+01_北海道モケケ	01_北海道	001	北海道	黄	狸小路	
+01_北海道モケケ	01_北海道	001	北海道	赤	クリオネ ピンクN	
+01_北海道モケケ	01_北海道	001	北海道	青	クリオネN	
+01_北海道モケケ	01_北海道	001	北海道	赤	あずき	
+01_北海道モケケ	01_北海道	001	北海道	緑	アスパラガス	
+01_北海道モケケ	01_北海道	001	北海道	黃	エゾリス	
+01_北海道モケケ	01_北海道	001	北海道	白	雪うさぎ	2019/02/22
+01_北海道モケケ	01_北海道	001	北海道	茶	ひぐま	○
+
+# 入手日は空欄（未取得）または日付（YYYY/MM/DD形式）または○（取得済み）を記入
+# カラー区分は「青」「黄」「赤」「緑」「白」「黒」「茶」「グレー」「総柄」など
+# 列数が異なる場合も自動で推測してカテゴリ/名前を整形します。
+</code></pre>
+        </details>
+
+        <details class="debug-panel" id="debugBox" style="margin-top:16px;border:1px solid #263045;border-radius:8px;background:#0b1020;">
+          <summary style="padding:8px;cursor:pointer;color:#c7d2e3;">デバッグ情報 (問題がある場合に開く)</summary>
+          <div style="padding:8px;font-family:monospace;font-size:12px;color:#c7d2e3;">
+            <div id="debugLog" style="background:#1a1f2e;padding:8px;border-radius:4px;height:100px;overflow-y:auto;white-space:pre-wrap;"></div>
+            <button id="btnClearDebug" class="btn btn-secondary" style="margin-top:8px;font-size:12px;">ログをクリア</button>
+          </div>
+        </details>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <span>リスト: <code>mokekelist.txt</code> を読み込みます (同じフォルダに配置)</span>
+      <span id="statusText" style="margin-left:12px"></span>
+    </footer>
+
+    <div id="loading" class="loading-overlay" style="display:none;">
+      <div class="loading-box">
+        <div class="spinner"></div>
+        <div id="loadingText">読み込み中...</div>
+      </div>
+    </div>
+    <script src="image_loader.js"></script>
+    <script src="app.js"></script>
+  </body>
+  </html>
