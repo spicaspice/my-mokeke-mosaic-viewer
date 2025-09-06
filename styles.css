@@ -154,7 +154,8 @@ details summary span {
 }
 
 .item .image-btn:hover {
-
+  opacity: 1;
+}
 /* Loading overlay */
 .loading-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:2000}
 .loading-box{background:#0b1020;border:1px solid var(--border);padding:16px 20px;border-radius:8px;color:#c7d2e3;display:flex;gap:12px;align-items:center}
@@ -163,5 +164,9 @@ details summary span {
 
 /* Thumbnail placeholder */
 .thumb-placeholder{width:60px;height:60px;border-radius:6px;background:#1a1f2e;border:1px dashed var(--border);display:inline-flex;align-items:center;justify-content:center;color:#64748b;font-size:10px;flex:0 0 auto}
-  opacity: 1;
-}
+/* Unify button and label.btn appearance */
+label.btn{display:inline-block; padding:8px 12px; border-radius:6px; cursor:pointer}
+label.btn.btn-secondary{background:#25314b; color:#c8d1dc}
+/* Unify label button typography */
+label.btn{display:inline-flex;align-items:center;justify-content:center;font:inherit;line-height:1;padding:8px 12px;border-radius:6px;cursor:pointer}
+label.btn.btn-secondary{background:#25314b;color:#c8d1dc}

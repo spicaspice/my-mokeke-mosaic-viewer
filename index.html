@@ -1,5 +1,5 @@
 ﻿<!doctype html>
-        <button id=\btnShareLink\ class=\btn\ title=\共有リンクを作成\>共有リンク</button>
+
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
@@ -23,8 +23,9 @@
           インポート
           <input id="importState" type="file" accept="application/json" hidden />
         </label>
-        <button id="btnLoadList" class="btn btn-secondary" title="ローカルのリストファイルを読み込み (file:// 対応)">リスト読込</button>
+        <label for="loadList" class="btn btn-secondary" title="リストファイルを読み込む">リスト読込</label>
         <input id="loadList" type="file" accept=".txt,.tsv,text/plain,text/tab-separated-values" hidden />
+        <button id="btnReset" class="btn btn-secondary" title="データ初期化(未取得に戻す)">データ初期化</button>
       </div>
     </header>
 

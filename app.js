@@ -16,8 +16,10 @@
     countTodo: document.getElementById('countTodo'),
     btnExport: document.getElementById('btnExport'),
     btnShareLink: document.getElementById('btnShareLink'),
+    btnReset: document.getElementById('btnReset'),
     btnLoadList: document.getElementById('btnLoadList'),
     importState: document.getElementById('importState'),
+    btnLoadFromPicker: document.getElementById('btnLoadFromPicker'),
     loadList: document.getElementById('loadList'),
     helpBox: document.getElementById('helpBox'),
     statusText: document.getElementById('statusText'),
@@ -71,7 +73,8 @@
     if (ov) {
       const t = document.getElementById('loadingText');
       if (t && msg) t.textContent = msg;
-      ov.style.display = 'flex';
+      ov.style.display = 'block';
+      try { document.body.classList.add('loading'); } catch {}
     } else {
       setStatus(msg || '処理中...');
     }
@@ -79,6 +82,7 @@
   function hideLoading() {
     const ov = document.getElementById('loading');
     if (ov) ov.style.display = 'none';
+    try { document.body.classList.remove('loading'); } catch {}
   }
 
   function addDebugLog(msg) {
@@ -374,6 +378,12 @@
     els.countTodo.textContent = String(total - done);
 
     for (const it of filtered) {
+      if (!it.image && imageData && imageData.images && imageData.images.length) {
+        try {
+          const m = smartFindImage(it.name || it.originalName || '', it.region || '', it.color || '', it.prefectureNo || '');
+          if (m) it.image = m;
+        } catch {}
+      }
       const li = document.createElement('li');
       li.className = 'item' + (progress.has(it.id) ? ' done' : '');
       const cb = document.createElement('input');
@@ -443,6 +453,27 @@
   }
 
   function initEvents() {
+    // Ensure Share Link button exists in DOM; create if missing (older HTML)
+    try {
+      if (!els.btnShareLink) {
+        const controls = document.querySelector('.controls');
+        if (controls) {
+          const btn = document.createElement('button');
+          btn.id = 'btnShareLink';
+          btn.className = 'btn btn-secondary';
+          btn.title = '共有用リンクをコピー';
+          btn.textContent = '共有リンク';
+          // insert after Export button if present, else append
+          const exportBtn = document.getElementById('btnExport');
+          if (exportBtn && exportBtn.nextSibling) {
+            controls.insertBefore(btn, exportBtn.nextSibling);
+          } else {
+            controls.appendChild(btn);
+          }
+          els.btnShareLink = btn;
+        }
+      }
+    } catch {}
     if (els.btnLoadList && els.loadList) {
       addDebugLog('ファイル読み込みボタンのイベントリスナーを設定');
       els.btnLoadList.addEventListener('click', () => {
@@ -477,7 +508,7 @@
           return;
         }
         setStatus('貼り付け内容を読み込み中...');
-        setupWithText(text);
+        setupListWithOptions(text, { overwriteProgress: true });
         if (!data.items.length) {
           setStatus('0 件を読み込みました (未認識)');
         } else {
@@ -511,7 +542,7 @@
 アイテム3`;
         
         addDebugLog('サンプルデータでテスト実行');
-        setupWithText(sampleText);
+        setupListWithOptions(sampleText, { overwriteProgress: true });
         setStatus('テストデータで読み込み完了');
       });
     } else {
@@ -586,6 +617,15 @@
       a.click();
       URL.revokeObjectURL(a.href);
     });
+    if (els.btnReset) {
+      els.btnReset.addEventListener('click', () => {
+        if (!confirm('データ初期化: すべて未取得に戻します。よろしいですか？')) return;
+        progress = new Set();
+        saveProgress();
+        sync();
+        setStatus('データを初期化しました');
+      });
+    }
     if (els.btnShareLink) {
       els.btnShareLink.addEventListener('click', async () => {
         try {
@@ -621,6 +661,15 @@
         els.importState.value = '';
       }
     });
+    if (els.btnLoadFromPicker && els.loadList) {
+      els.btnLoadFromPicker.addEventListener('click', async () => {
+        const f = els.loadList.files?.[0];
+        if (!f) { setStatus('ファイルを選択してください'); return; }
+        showLoading('リストを読み込み中…');
+        await handleListFile(f);
+        hideLoading();
+      });
+    }
     els.loadList.addEventListener('change', async () => {
       addDebugLog('ファイル選択が変更されました');
       const f = els.loadList.files?.[0];
@@ -653,7 +702,7 @@
     try {
       const buf = await f.arrayBuffer();
       const text = decodeBest(buf);
-      setupWithText(text);
+      setupListWithOptions(text, { overwriteProgress: true });
       if (!data.items.length) {
         alert('\u30ea\u30b9\u30c8\u5185\u5bb9\u3092\u8a8d\u8b58\u3067\u304d\u307e\u305b\u3093\u3067\u3057\u305f\u3002TSV\u307e\u305f\u306f\u30bb\u30af\u30b7\u30e7\u30f3\u5f62\u5f0f\u3067\u8a18\u8ff0\u3057\u3066\u304f\u3060\u3055\u3044\u3002');
         setStatus('0 件を読み込みました (未認識)');
@@ -693,6 +742,42 @@
       saveProgress();
     }
     
+    if (els.helpBox) els.helpBox.open = !data.items.length;
+    sync();
+  }
+
+  // New: list setup with overwrite option (use file ownership as source of truth when requested)
+  function setupListWithOptions(text, opts = {}) {
+    showLoading('リストを解析中…');
+    rawText = text || '';
+    const hash = djb2(rawText);
+    storageKey = 'mokeke:v1:' + hash;
+    usedImages.clear();
+
+    const overwrite = !!opts.overwriteProgress;
+    const allUnchecked = !!opts.allUnchecked;
+    if (overwrite || allUnchecked) {
+      progress = new Set();
+    } else {
+      progress = new Set();
+      loadProgress();
+    }
+
+    data = parseAuto(rawText);
+
+    let autoCheckedCount = 0;
+    if (allUnchecked) {
+      // keep all unchecked
+      saveProgress();
+    } else if (overwrite) {
+      const next = new Set();
+      for (const item of data.items) { if (item.isAcquired) { next.add(item.id); autoCheckedCount++; } }
+      progress = next;
+      saveProgress();
+    } else {
+      for (const item of data.items) { if (item.isAcquired && !progress.has(item.id)) { progress.add(item.id); autoCheckedCount++; } }
+      if (autoCheckedCount > 0) saveProgress();
+    }
     if (els.helpBox) els.helpBox.open = !data.items.length;
     sync();
   }
@@ -755,7 +840,7 @@
       const id = djb2(idSeed);
       
       // 対応する画像を検索
-      const matchingImage = findMatchingImage(displayName, region, color, prefectureNo);
+       const matchingImage = smartFindImage(displayName, region, color, prefectureNo);
       
       items.push({ 
         id, 
@@ -966,6 +1051,62 @@
     return null;
   }
 
+  // Fallback/robust matcher using regionName as well
+  function smartFindImage(displayName, region, color, prefectureNo) {
+    try {
+      if (typeof findMatchingImage === 'function') {
+        const first = findMatchingImage(displayName, region, color, prefectureNo);
+        if (first) return first;
+      }
+    } catch {}
+    if (!imageData || !Array.isArray(imageData.images) || !imageData.images.length) return null;
+
+    const normalize = (s) => (s || '').toString().trim().replace(/\s+/g, '').replace(/モケケ$/,'');
+    const parts = (displayName || '').split(' ');
+    const regionCand = normalize(parts[0] || region || '');
+    const itemName = (parts.slice(1).join(' ') || '').toLowerCase();
+    const regionCandidates = Array.from(new Set([regionCand, normalize(region || '')].filter(Boolean)));
+
+    // Try region-based filter including regionName/prefecture/subRegion
+    let regionImages = imageData.images.filter(img => {
+      if (usedImages.has(img.filename)) return false;
+      const fields = [img.regionName, img.prefecture, img.subRegion].map(normalize);
+      return regionCandidates.some(rc => rc && fields.some(f => f && (f === rc || f.includes(rc) || rc.includes(f))));
+    });
+
+    // Name match within region
+    const tryNameMatch = (pool) => {
+      return pool.find(img => {
+        const imgName = (img.itemName || '').toLowerCase();
+        if (!itemName) return false;
+        if (imgName === itemName) return true;
+        if (imgName.includes(itemName)) return true;
+        if (itemName.includes(imgName)) return true;
+        const imgWords = imgName.split('_');
+        const searchWords = itemName.split(' ');
+        for (const sw of searchWords) {
+          if (sw.length > 1) {
+            for (const iw of imgWords) {
+              if (iw.includes(sw) || sw.includes(iw)) return true;
+            }
+          }
+        }
+        return false;
+      }) || null;
+    };
+
+    let m = tryNameMatch(regionImages);
+    if (m) { usedImages.add(m.filename); return m; }
+
+    // Global name match
+    m = tryNameMatch(imageData.images.filter(img => !usedImages.has(img.filename)));
+    if (m) { usedImages.add(m.filename); return m; }
+
+    // Fallback: pick first from region pool
+    if (regionImages.length) { const fb = regionImages[0]; usedImages.add(fb.filename); return fb; }
+    return null;
+  }
+
   // 画像表示機能
   function showImage(item) {
     addDebugLog(`画像表示開始: ${item.name} (${item.category})`);
@@ -998,7 +1139,7 @@
     try {
       if (item && item.image && item.image.path) return item.image.path;
       if (typeof findMatchingImage === 'function' && imageData && imageData.images && imageData.images.length) {
-        const m = findMatchingImage(item.name || item.originalName || '', item.region || '', item.color || '', item.prefectureNo || '');
+        const m = smartFindImage(item.name || item.originalName || '', item.region || '', item.color || '', item.prefectureNo || '');
         if (m && m.path) return m.path;
       }
     } catch {}
@@ -1174,65 +1315,126 @@ function getRegionFolder(region) {
   }
 
   async function boot() {
-    addDebugLog('アプリケーション初期化開始');
-    
-    // DOM要素の取得状況をチェック
-    addDebugLog('DOM要素チェック開始');
+    addDebugLog('boot: start init');
+    addDebugLog('boot: DOM check');
     for (const [key, element] of Object.entries(els)) {
-      if (element) {
-        addDebugLog(`✓ ${key}: 取得成功`);
-      } else {
-        addDebugLog(`✗ ${key}: 取得失敗`);
+      try { addDebugLog('els.' + key + ': ' + (element ? 'ok' : 'missing')); } catch {}
+    }
+    initEvents();
+    addDebugLog('events: ready');
+
+  // 画像データのプリロード
+loadImageDataCsv().then((res) => {
+try {
+const src = (res && res.images) ? res : (window && window.mokekeImageData ? window.mokekeImageData : null);
+if (src && Array.isArray(src.images)) {
+const augmented = src.images.map(img => {
+try {
+const parsed = (typeof parseImageFilename === 'function')
+? parseImageFilename(img.filename, img.regionName || img.area || '')
+: null;
+if (parsed) {
+return {
+...img,
+prefecture: parsed.prefecture,
+subRegion: parsed.subRegion,
+color: img.color || parsed.color
+};
+}
+} catch {}
+return img;
+});
+imageData.images = augmented;
+imageData.regions = [...new Set(augmented.map(it => it.regionName || it.prefecture).filter(Boolean))].sort();
+}
+} catch {}
+sync();
+});
+
+  // 共有リンクとキャッシュ有無で起動挙動を分岐
+  let shared = null;
+  try {
+    const m = location.hash.match(/#s=([A-Za-z0-9\-_]+)/);
+    if (m) {
+      const json = decodeURIComponent(escape(atob(m[1].replace(/-/g,'+').replace(/_/g,'/'))));
+      shared = JSON.parse(json);
+      addDebugLog('共有リンクの状態を検出');
+    }
+  } catch {}
+  const hasAnyProgress = (() => { try { return Object.keys(localStorage).some(k => k.startsWith('mokeke:v1:')); } catch { return false; } })();
+
+  if (shared) {
+    showLoading('共有リンクの内容を読み込み中…');
+    const txt = await loadFromRelativeFile(shared.list || 'mokekelist_20250906.txt');
+    if (txt) {
+      setupListWithOptions(txt, { overwriteProgress: false });
+      if (shared.collected && Array.isArray(shared.collected)) {
+        const valid = new Set(data.items.map(i => i.id));
+        for (const id of shared.collected) if (valid.has(id)) progress.add(id);
+        saveProgress();
+        sync();
+        setStatus('共有リンクから進捗を適用しました');
       }
     }
-    
-    initEvents();
-    addDebugLog('イベントリスナー設定完了');
-    
-    // 画像データを非同期で読み込み（初期表示を高速化）
-    loadImageDataCsv().then((res) => {
-      addDebugLog('画像データの読み込み完了(プリロード)');
-      try {
-        const src = (res && res.images) ? res : (window && window.mokekeImageData ? window.mokekeImageData : null);
-        if (src) {
-          const augmented = src.images.map(img => {
-            try {
-              const parsed = (typeof parseImageFilename === 'function') ? parseImageFilename(img.filename, img.regionName || img.area || '') : null;
-              if (parsed) {
-                return { ...img, prefecture: parsed.prefecture, subRegion: parsed.subRegion, color: img.color || parsed.color };
-              }
-            } catch {}
-            return img;
-          });
-          imageData.images = augmented;
-          imageData.regions = [...new Set(augmented.map(it => it.regionName || it.prefecture).filter(Boolean))].sort();
-        }
-      } catch {}
-      sync();
-    });
-    const text = await loadFromRelativeFile('mokekelist_20250906.txt');
-    if (text) {
-      addDebugLog(`mokekelist.txt を自動読み込み (${text.length} 文字)`);
-      setStatus('mokekelist.txt を自動読み込み');
-    } else {
-      addDebugLog('mokekelist.txt の自動読み込みに失敗');
-    }
-    
-    // Fallback: if latest file not found, try legacy name
-    let finalText = text;
-    if (!finalText) {
-      const t2 = await loadFromRelativeFile('mokekelist.txt');
-      if (t2) finalText = t2;
-    }
-
-    setupWithText(finalText);
-    addDebugLog('アプリケーション初期化完了');
+    hideLoading();
+  } else if (hasAnyProgress) {
+    showLoading('前回のリストを読み込み中…');
+    let txt = await loadFromRelativeFile('mokekelist_20250906.txt');
+    if (!txt) txt = await loadFromRelativeFile('mokekelist.txt');
+    if (txt) setupListWithOptions(txt, { overwriteProgress: false });
+    hideLoading();
+  } else {
+    showLoading('初期データを読み込み中…');
+    let txt = await loadFromRelativeFile('mokekelist_20250906.txt');
+    if (!txt) txt = await loadFromRelativeFile('mokekelist.txt');
+    if (txt) setupListWithOptions(txt, { overwriteProgress: true, allUnchecked: true });
+    hideLoading();
   }
+}
 
-  function start() {
+async function boot2() {
+  addDebugLog('boot2: init');
+  for (const [key, element] of Object.entries(els)) {
+    try { addDebugLog(`els.${key}: ${element ? 'ok' : 'missing'}`); } catch {}
+  }
+  initEvents();
+  loadImageDataCsv().then((res) => {
+    try {
+      const src = (res && res.images) ? res : (window && window.mokekeImageData ? window.mokekeImageData : null);
+      if (src && Array.isArray(src.images)) {
+        const augmented = src.images.map(img => {
+          try {
+            const parsed = (typeof parseImageFilename === 'function')
+              ? parseImageFilename(img.filename, img.regionName || img.area || '')
+              : null;
+            if (parsed) {
+              return {
+                ...img,
+                prefecture: parsed.prefecture,
+                subRegion: parsed.subRegion,
+                color: img.color || parsed.color
+              };
+            }
+          } catch {}
+          return img;
+        });
+        imageData.images = augmented;
+        imageData.regions = [...new Set(augmented.map(it => it.regionName || it.prefecture).filter(Boolean))].sort();
+      }
+    } catch {}
+    sync();
+  });
+  try {
+    const hasAnyProgress = Object.keys(localStorage).some(k => k.startsWith('mokeke:v1:'));
+    if (!hasAnyProgress) {
+      setStatus('右上の「リスト読込」からファイルを選択してください');
+    }
+  } catch {}
+}
+function start() {
     addDebugLog('start() 関数が呼び出されました');
     try { 
-      boot(); 
+      boot2(); 
     }
     catch (e) { 
       const errorMsg = '初期化エラー: ' + e.message;
@@ -1263,7 +1465,7 @@ function getRegionFolder(region) {
       if (item && item.image && item.image.path) {
         imagePath = item.image.path;
       } else if (typeof findMatchingImage === 'function' && imageData && imageData.images && imageData.images.length) {
-        const m = findMatchingImage(item.name || item.originalName || '', item.region || '', item.color || '', item.prefectureNo || '');
+        const m = smartFindImage(item.name || item.originalName || '', item.region || '', item.color || '', item.prefectureNo || '');
         if (m && m.path) imagePath = m.path;
       }
     } catch {}
@@ -1282,5 +1484,3 @@ function getRegionFolder(region) {
     }
   }
 })();
-
-    hideLoading();
