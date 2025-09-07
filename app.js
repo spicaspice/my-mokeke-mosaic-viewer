@@ -1608,27 +1608,32 @@ function start() {
     // はじめる！ボタン: mokekelist_latest.txt を読み込み
     if (els.btnStart) {
       els.btnStart.addEventListener('click', async () => {
+        addDebugLog('btnStart clicked');
         try {
           showLoading('リストを読み込み中…');
           let txt = await loadFromRelativeFile('mokekelist_latest.txt');
+          addDebugLog(`attempt latest: ${txt ? 'ok' : 'miss'}`);
           if (!txt) {
             // 念のためのフォールバック
             const candidates = ['mokekelist_latest.txt','mokekelist_lastest.txt','mokekelist_20250906.txt','mokekelist.txt'];
             for (const name of candidates) {
+              addDebugLog(`try candidate: ${name}`);
               txt = await loadFromRelativeFile(name);
-              if (txt && txt.trim()) { lastListName = name; break; }
+              if (txt && txt.trim()) { lastListName = name; addDebugLog(`use: ${name}`); break; }
             }
           } else {
             lastListName = 'mokekelist_latest.txt';
           }
           if (txt) {
             setupListWithOptions(txt, { overwriteProgress: true });
+            addDebugLog(`parse result: items=${data.items?.length||0}`);
             setStatus(`${data.items.length} 件を読み込みました`);
           } else {
             setStatus('リストファイルが見つかりませんでした');
           }
         } catch (e) {
           setStatus('読み込みでエラーが発生しました');
+          addDebugLog('btnStart error: ' + e.message);
         } finally {
           hideLoading();
         }
