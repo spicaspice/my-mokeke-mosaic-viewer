@@ -539,6 +539,30 @@
         }
       }
     } catch {}
+
+    // Create "はじめる！" button dynamically if not present
+    try {
+      if (!els.btnStart) {
+        const content = document.querySelector('section.content');
+        if (content) {
+          const panel = document.createElement('div');
+          panel.className = 'start-panel';
+          panel.style.cssText = 'margin:8px 0 12px 0;padding:10px;border:1px solid #263045;border-radius:8px;background:#0b1020;display:flex;align-items:center;gap:10px;';
+          const btn = document.createElement('button');
+          btn.id = 'btnStart';
+          btn.className = 'btn';
+          btn.textContent = 'はじめる！';
+          btn.style.minWidth = '120px';
+          const note = document.createElement('div');
+          note.style.cssText = 'color:#c7d2e3;font-size:12px;';
+          note.innerHTML = "クリックすると <code>mokekelist_latest.txt</code> を読み込みます。";
+          panel.append(btn, note);
+          // insert at top of content
+          content.insertBefore(panel, content.firstChild);
+          els.btnStart = btn;
+        }
+      }
+    } catch {}
     if (els.btnLoadList && els.loadList) {
       addDebugLog('ファイル読み込みボタンのイベントリスナーを設定');
       els.btnLoadList.addEventListener('click', () => {
