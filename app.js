@@ -1445,17 +1445,7 @@ imageData.regions = [...new Set(augmented.map(it => it.regionName || it.prefectu
 }
 } catch {}
 sync();
-    // Try default list on boot
-    let hasAnyProgress = false;
-    try { hasAnyProgress = Object.keys(localStorage).some(k => k.startsWith('mokeke:v1:')); } catch {}
-    if (!data.items || data.items.length === 0) {
-      const candidates = ['mokekelist_latest.txt','mokekelist_lastest.txt','mokekelist_20250906.txt','mokekelist.txt'];
-      for (const name of candidates) {
-        const t = await loadFromRelativeFile(name);
-        if (t && t.trim()) { lastListName = name; setupListWithOptions(t, { overwriteProgress: !hasAnyProgress, allUnchecked: !hasAnyProgress }); break; }
-      }
-    }
-});
+  });
 
   // 共有リンクとキャッシュ有無で起動挙動を分岐
   let shared = null;
