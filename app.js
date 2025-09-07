@@ -746,6 +746,17 @@
       await handleListFile(f);
     });
 
+    // Fallback: capture file input change at document level as保険
+    document.addEventListener('change', async (ev) => {
+      try {
+        const t = ev.target;
+        if (t && t.id === 'loadList' && t.files && t.files[0]) {
+          addDebugLog('[fallback] document change: file selected');
+          await handleListFile(t.files[0]);
+        }
+      } catch {}
+    }, true);
+
     // 画像表示のイベントリスナー
     if (els.closeImageViewer) {
       els.closeImageViewer.addEventListener('click', hideImage);
