@@ -1,9 +1,9 @@
-(() => {
+﻿(() => {
   'use strict';
 
   // Constants (use Unicode escapes to avoid encoding issues in source)
-  const UNCAT = '\u672a\u5206\u985e'; // 譛ｪ蛻・�E�・
-  const NAME_UNKNOWN = '(\u540d\u79f0\u4e0d\u660e)'; // (蜷咲�E��E�荳肴・)
+  const UNCAT = '\u672a\u5206\u985e'; // 隴幢ｽｪ陋ｻ繝ｻ・ｽE・ｽ繝ｻ
+  const NAME_UNKNOWN = '(\u540d\u79f0\u4e0d\u660e)'; // (陷ｷ蜥ｲ・ｽE・ｽ・ｽE・ｽ闕ｳ閧ｴ繝ｻ)
 
   const els = {
     search: document.getElementById('search'),
@@ -62,20 +62,21 @@
     } catch {}
   }
   function saveProgress() {
-    localStorage.setItem(storageKey, JSON.stringify([...progress]);
+    localStorage.setItem(storageKey, JSON.stringify([...progress]));
+  }
 
   function setupWithText(text) {
-    showLoading('繝ｪ繧�E�繝医�E�隗�E�譫蝉ｸ�E�窶�E�');
+    showLoading('郢晢ｽｪ郢ｧ・ｽE・ｽ郢晏現・ｽE・ｽ髫暦ｿｽE・ｽ隴ｫ陜会ｽｸ・ｽE・ｽ遯ｶ・ｽE・ｽ');
     rawText = text || '';
     const hash = djb2(rawText);
     storageKey = `mokeke:v1:${hash}`;
     progress = new Set();
-    usedImages.clear(); // 菴�E�逕ｨ貂医∩逕ｻ蜒上そ繝�Eヨ繧偵Μ繧�E�繝�Eヨ
+    usedImages.clear(); // 闖ｴ・ｽE・ｽ騾包ｽｨ雋ょ現竏ｩ騾包ｽｻ陷剃ｸ翫◎郢晢ｿｽE繝ｨ郢ｧ蛛ｵﾎ懃ｹｧ・ｽE・ｽ郢晢ｿｽE繝ｨ
     loadProgress();
     loadOverrides();
     data = parseAuto(rawText);
     
-    // 蜈･謁E��律縺後≠繧九い繧�E�繝�EΒ繧定�E蜍輔〒繝�Eぉ繝�Eけ貂医∩縺�E�縺吶�E�E
+    // 陷茨ｽ･隰・・ｽ・ｽ蠕狗ｸｺ蠕娯旺郢ｧ荵昴＞郢ｧ・ｽE・ｽ郢晢ｿｽEﾎ堤ｹｧ螳夲ｿｽE陷崎ｼ斐堤ｹ晢ｿｽE縺臥ｹ晢ｿｽE縺題ｲょ現竏ｩ邵ｺ・ｽE・ｽ邵ｺ蜷ｶ・ｽE・ｽE
     let autoCheckedCount = 0;
     for (const item of data.items) {
       if (item.isAcquired && !progress.has(item.id)) {
@@ -85,7 +86,7 @@
     }
     
     if (autoCheckedCount > 0) {
-      addDebugLog(`${autoCheckedCount} 莉ｶ縺�E�繧�E�繧�E�繝�EΒ繧貞�E謁E��律縺�E�繧医�E�閾�E�蜍輔メ繧�E�繝�Eけ縺励∪縺励◁E);
+      addDebugLog(`${autoCheckedCount} 闔会ｽｶ邵ｺ・ｽE・ｽ郢ｧ・ｽE・ｽ郢ｧ・ｽE・ｽ郢晢ｿｽEﾎ堤ｹｧ雋橸ｿｽE隰・・ｽ・ｽ蠕狗ｸｺ・ｽE・ｽ郢ｧ蛹ｻ・ｽE・ｽ髢ｾ・ｽE・ｽ陷崎ｼ斐Γ郢ｧ・ｽE・ｽ郢晢ｿｽE縺醍ｸｺ蜉ｱ竏ｪ邵ｺ蜉ｱ笳・);
       saveProgress();
     }
     
@@ -95,7 +96,7 @@
 
   // New: list setup with overwrite option (use file ownership as source of truth when requested)
   function setupListWithOptions(text, opts = {}) {
-    showLoading('繝ｪ繧�E�繝医�E�隗�E�譫蝉ｸ�E�窶�E�');
+    showLoading('郢晢ｽｪ郢ｧ・ｽE・ｽ郢晏現・ｽE・ｽ髫暦ｿｽE・ｽ隴ｫ陜会ｽｸ・ｽE・ｽ遯ｶ・ｽE・ｽ');
     rawText = text || '';
     const hash = djb2(rawText);
     storageKey = 'mokeke:v1:' + hash;
@@ -141,32 +142,32 @@
     const majorCategories = new Set();
     const minorCategories = new Set();
     const lines = text.split(/\r?\n/);
-    let isFirstLine = true; // 繝倥ャ繝繝ｼ陦後ｒ繧�E�繧�E�繝�E・縺吶�E�縺溘ａ縺�E�繝輔Λ繧�E�
+    let isFirstLine = true; // 郢晏･繝｣郢敖郢晢ｽｼ髯ｦ蠕鯉ｽ堤ｹｧ・ｽE・ｽ郢ｧ・ｽE・ｽ郢晢ｿｽE繝ｻ邵ｺ蜷ｶ・ｽE・ｽ邵ｺ貅假ｽ∫ｸｺ・ｽE・ｽ郢晁ｼ釆帷ｹｧ・ｽE・ｽ
     
     for (const raw of lines) {
       if (!raw) continue;
       if (raw.trim().startsWith('#')) continue;
       
-      // 譛蛻昴・陦鯉ｼ医・繝�Eム繝ｼ陦鯉ｼ峨�E�繧�E�繧�E�繝�E・
+      // 隴崢陋ｻ譏ｴ繝ｻ髯ｦ魃会ｽｼ蛹ｻ繝ｻ郢晢ｿｽE繝郢晢ｽｼ髯ｦ魃会ｽｼ蟲ｨ・ｽE・ｽ郢ｧ・ｽE・ｽ郢ｧ・ｽE・ｽ郢晢ｿｽE繝ｻ
       if (isFirstLine) {
         isFirstLine = false;
         continue;
       }
       
       const cols = raw.split('\t');
-      if (cols.length < 7) continue; // 譁E��縺励�E�讒矩�E�縺�E�縺�E�7蛻怜ｿ・�E�・
+      if (cols.length < 7) continue; // 隴・・ｽ・ｽ邵ｺ蜉ｱ・ｽE・ｽ隶堤洸ﾂ・ｽE・ｽ邵ｺ・ｽE・ｽ邵ｺ・ｽE・ｽ7陋ｻ諤懶ｽｿ繝ｻ・ｽE・ｽ繝ｻ
 
       for (let i = 0; i < cols.length; i++) cols[i] = cols[i].trim();
-      // keep trailing empty fields to preserve column count (e.g., 蜈･謁E��律縺檎ｩ�E�縺�E�繧・蛻励�E�邯�E�謖�E
+      // keep trailing empty fields to preserve column count (e.g., 陷茨ｽ･隰・・ｽ・ｽ蠕狗ｸｺ讙趣ｽｩ・ｽE・ｽ邵ｺ・ｽE・ｽ郢ｧ繝ｻ陋ｻ蜉ｱ・ｽE・ｽ驍ｯ・ｽE・ｽ隰厄ｿｽE
       // while (cols.length && cols[cols.length-1] === '') cols.pop();
       if (!cols.length) continue;
 
-      // 譁E��縺励�E�讒矩�E�縺�E�蛻励�E�蜿門�E�・
-      const majorCategory = cols[0]; // 螟ｧ蛻・�E�樒�E蜿�E�
-      const minorCategory = cols[1]; // 荳�E�蛻・�E�槫錁E
-      const prefectureNo = cols[2];  // 逵君O
-      const region = cols[3];        // 蝨�E�蝓�E
-      const color = cols[4];         // 繧�E�繝ｩ繝ｼ蛹�E�蛻・      // 荳�E�縺�E�鬁E�E・縺後≠繧区眠繝輔か繝ｼ繝槭ャ繝医↓蟇�E�蠢懶�E�亥・謨�E�>=8・・      let order = 0, name = '', acquiredDate = '';
+      // 隴・・ｽ・ｽ邵ｺ蜉ｱ・ｽE・ｽ隶堤洸ﾂ・ｽE・ｽ邵ｺ・ｽE・ｽ陋ｻ蜉ｱ・ｽE・ｽ陷ｿ髢・ｽE・ｽ繝ｻ
+      const majorCategory = cols[0]; // 陞滂ｽｧ陋ｻ繝ｻ・ｽE・ｽ讓抵ｿｽE陷ｿ・ｽE・ｽ
+      const minorCategory = cols[1]; // 闕ｳ・ｽE・ｽ陋ｻ繝ｻ・ｽE・ｽ讒ｫ骭・
+      const prefectureNo = cols[2];  // 騾ｵ蜷娑
+      const region = cols[3];        // 陜ｨ・ｽE・ｽ陜難ｿｽE
+      const color = cols[4];         // 郢ｧ・ｽE・ｽ郢晢ｽｩ郢晢ｽｼ陋ｹ・ｽE・ｽ陋ｻ繝ｻ      // 闕ｳ・ｽE・ｽ邵ｺ・ｽE・ｽ鬯・・ｽE繝ｻ邵ｺ蠕娯旺郢ｧ蛹ｺ逵郢晁ｼ斐°郢晢ｽｼ郢晄ｧｭ繝｣郢晏現竊楢汞・ｽE・ｽ陟｢諛ｶ・ｽE・ｽ莠･繝ｻ隰ｨ・ｽE・ｽ>=8繝ｻ繝ｻ      let order = 0, name = '', acquiredDate = '';
       if (cols.length >= 8) {
         order = parseInt(cols[5], 10); if (!Number.isFinite(order)) order = 0;
         name = cols[6];
@@ -176,15 +177,15 @@
         acquiredDate = cols[6];
       }
 
-      // 繧�E�繝�Eざ繝ｪ繧呈ｧ狗ｯ・
+      // 郢ｧ・ｽE・ｽ郢晢ｿｽE縺也ｹ晢ｽｪ郢ｧ蜻茨ｽｧ迢暦ｽｯ繝ｻ
       majorCategories.add(majorCategory);
       minorCategories.add(minorCategory);
 
-      // 陦�E�遉ｺ蠖｢蠑�E 蝨�E�蝓�E蜷榊�� 繧�E�繝ｩ繝ｼ蛹�E�蛻・
+      // 髯ｦ・ｽE・ｽ驕会ｽｺ陟厄ｽ｢陟托ｿｽE 陜ｨ・ｽE・ｽ陜難ｿｽE陷ｷ讎奇ｿｽ・ｽ 郢ｧ・ｽE・ｽ郢晢ｽｩ郢晢ｽｼ陋ｹ・ｽE・ｽ陋ｻ繝ｻ
       let displayName = '';
       if (region) displayName += region;
       if (name) displayName += (displayName ? ' ' : '') + name;
-      if (color && color.length <= 10 && !/[隨�E�蠑ｾ]/.test(color)) {
+      if (color && color.length <= 10 && !/[髫ｨ・ｽE・ｽ陟托ｽｾ]/.test(color)) {
         displayName += (displayName ? ' ' : '') + color;
       }
       
@@ -193,61 +194,61 @@
       const idSeed = (cols[0] || '') + '::' + majorCategory + '::' + minorCategory + '::' + name + '::' + order;
       const id = djb2(idSeed);
       
-      // 蟁E��蠢懊�E繧狗判蜒上ｒ讀懁E���E�
+      // 陝・・ｽ・ｽ陟｢諛奇ｿｽE郢ｧ迢怜愛陷剃ｸ奇ｽ定ｮ諛・・ｽ・ｽ・ｽE・ｽ
        const matchingImage = smartFindImage(displayName, region, color, prefectureNo, order);
       
       items.push({ 
         id, 
-        name: displayName, // 陦�E�遉ｺ逕ｨ縺�E�蜷榊��
-        originalName: name, // 蜈�E・蜷榊��
-        region: region, // 蝨�E�蝓�E
-        color: color, // 繧�E�繝ｩ繝ｼ蛹�E�蛻・
-        majorCategory: majorCategory, // 螟ｧ蛻・�E�・
-        minorCategory: minorCategory, // 荳�E�蛻・�E�・
-        category: `${majorCategory} > ${minorCategory}`, // 髫主�E��E�陦�E�遉ｺ逕ｨ
+        name: displayName, // 髯ｦ・ｽE・ｽ驕会ｽｺ騾包ｽｨ邵ｺ・ｽE・ｽ陷ｷ讎奇ｿｽ・ｽ
+        originalName: name, // 陷茨ｿｽE繝ｻ陷ｷ讎奇ｿｽ・ｽ
+        region: region, // 陜ｨ・ｽE・ｽ陜難ｿｽE
+        color: color, // 郢ｧ・ｽE・ｽ郢晢ｽｩ郢晢ｽｼ陋ｹ・ｽE・ｽ陋ｻ繝ｻ
+        majorCategory: majorCategory, // 陞滂ｽｧ陋ｻ繝ｻ・ｽE・ｽ繝ｻ
+        minorCategory: minorCategory, // 闕ｳ・ｽE・ｽ陋ｻ繝ｻ・ｽE・ｽ繝ｻ
+        category: `${majorCategory} > ${minorCategory}`, // 鬮ｫ荳ｻ・ｽE・ｽ・ｽE・ｽ髯ｦ・ｽE・ｽ驕会ｽｺ騾包ｽｨ
         prefectureNo: prefectureNo,
         order: order,
         acquiredDate: acquiredDate,
-        isAcquired: !!acquiredDate && acquiredDate.trim() !== '', // 蜈･謁E��律縺後≠繧句�E��E�蜷医・蜿門�E�玲�E�医∩
-        image: matchingImage // 蟁E��蠢懊�E繧狗判蜒乗ュ蝣�E�
+        isAcquired: !!acquiredDate && acquiredDate.trim() !== '', // 陷茨ｽ･隰・・ｽ・ｽ蠕狗ｸｺ蠕娯旺郢ｧ蜿･・ｽE・ｽ・ｽE・ｽ陷ｷ蛹ｻ繝ｻ陷ｿ髢・ｽE・ｽ邇ｲ・ｽE・ｽ蛹ｻ竏ｩ
+        image: matchingImage // 陝・・ｽ・ｽ陟｢諛奇ｿｽE郢ｧ迢怜愛陷剃ｹ励Η陜｣・ｽE・ｽ
       });
     }
     
     return { 
       majorCategories: Array.from(majorCategories).sort(),
       minorCategories: Array.from(minorCategories).sort(),
-      categories: Array.from(majorCategories).sort(), // 蠕梧婿莠呈鋤諤�E�縺�E�縺溘ａE
+      categories: Array.from(majorCategories).sort(), // 陟墓｢ｧ蟀ｿ闔蜻磯共隲､・ｽE・ｽ邵ｺ・ｽE・ｽ邵ｺ貅假ｽ・
       items 
     };
   }
 
-  // 逕ｻ蜒上ョ繝ｼ繧�E�繧定ｪ�E�縺�E�霎ｼ繧・育�E��E�逡�E�蛹也沿・・
+  // 騾包ｽｻ陷剃ｸ翫Ι郢晢ｽｼ郢ｧ・ｽE・ｽ郢ｧ螳夲ｽｪ・ｽE・ｽ邵ｺ・ｽE・ｽ髴趣ｽｼ郢ｧﾂ繝ｻ閧ｲ・ｽE・ｽ・ｽE・ｽ騾｡・ｽE・ｽ陋ｹ荵滓ｲｿ繝ｻ繝ｻ
   async function loadImageData() {
-    addDebugLog('逕ｻ蜒上ョ繝ｼ繧�E�縺�E�隱�E�縺�E�霎ｼ縺�E�髢句�E�具�E�育�E��E�逡�E�蛹也沿・・);
+    addDebugLog('騾包ｽｻ陷剃ｸ翫Ι郢晢ｽｼ郢ｧ・ｽE・ｽ邵ｺ・ｽE・ｽ髫ｱ・ｽE・ｽ邵ｺ・ｽE・ｽ髴趣ｽｼ邵ｺ・ｽE・ｽ鬮｢蜿･・ｽE・ｽ蜈ｷ・ｽE・ｽ閧ｲ・ｽE・ｽ・ｽE・ｽ騾｡・ｽE・ｽ陋ｹ荵滓ｲｿ繝ｻ繝ｻ);
     
-    // 螳滁E��縺�E�逕ｻ蜒上ヵ繧�E�繧�E�繝ｫ縺�E�逶�E�謗･隱�E�縺�E�霎ｼ縺�E�縺壹√ヵ繧�E�繧�E�繝ｫ蜷阪°繧画耳貂ｬ縺吶�E�譁E��蠑上�E螟画峩
+    // 陞ｳ貊・・ｽ・ｽ邵ｺ・ｽE・ｽ騾包ｽｻ陷剃ｸ翫Ψ郢ｧ・ｽE・ｽ郢ｧ・ｽE・ｽ郢晢ｽｫ邵ｺ・ｽE・ｽ騾ｶ・ｽE・ｽ隰暦ｽ･髫ｱ・ｽE・ｽ邵ｺ・ｽE・ｽ髴趣ｽｼ邵ｺ・ｽE・ｽ邵ｺ螢ｹﾂ竏壹Ψ郢ｧ・ｽE・ｽ郢ｧ・ｽE・ｽ郢晢ｽｫ陷ｷ髦ｪﾂｰ郢ｧ逕ｻ閠ｳ雋ゑｽｬ邵ｺ蜷ｶ・ｽE・ｽ隴・・ｽ・ｽ陟台ｸ奇ｿｽE陞溽判蟲ｩ
     imageData = { regions: [], images: [] };
     
-    addDebugLog('逕ｻ蜒上ョ繝ｼ繧�E�隱�E�縺�E�霎ｼ縺�E�螳御�E�・�E�育�E��E�逡�E�蛹也沿・・);
+    addDebugLog('騾包ｽｻ陷剃ｸ翫Ι郢晢ｽｼ郢ｧ・ｽE・ｽ髫ｱ・ｽE・ｽ邵ｺ・ｽE・ｽ髴趣ｽｼ邵ｺ・ｽE・ｽ陞ｳ蠕｡・ｽE・ｽ繝ｻ・ｽE・ｽ閧ｲ・ｽE・ｽ・ｽE・ｽ騾｡・ｽE・ｽ陋ｹ荵滓ｲｿ繝ｻ繝ｻ);
     return imageData;
   }
   
-  // 逕ｻ蜒上ヵ繧�E�繧�E�繝ｫ蜷阪�E�隗�E�譫・
+  // 騾包ｽｻ陷剃ｸ翫Ψ郢ｧ・ｽE・ｽ郢ｧ・ｽE・ｽ郢晢ｽｫ陷ｷ髦ｪ・ｽE・ｽ髫暦ｿｽE・ｽ隴ｫ繝ｻ
   function parseImageFilename(filename, regionName) {
-    // 萓�E 01_蛹玲�E��E�驕点01_蛹玲�E��E�驕点01_迚�Ejpg
+    // 關難ｿｽE 01_陋ｹ邇ｲ・ｽE・ｽ・ｽE・ｽ鬩慕せ01_陋ｹ邇ｲ・ｽE・ｽ・ｽE・ｽ鬩慕せ01_霑夲ｿｽEjpg
     const parts = filename.replace('.jpg', '').split('_');
     if (parts.length < 6) return null;
     
     const prefectureNo = parts[0];
     const prefecture = parts[1];
     const subRegion = parts[3];
-    // 繧�E�繧�E�繝�EΒ蜷阪・5逡�E�逶�E�莉･髯阪�E�邨仙粋�E医き繝ｩ繝ｼ諠・�E��E�繧めE��繧・・
+    // 郢ｧ・ｽE・ｽ郢ｧ・ｽE・ｽ郢晢ｿｽEﾎ定惺髦ｪ繝ｻ5騾｡・ｽE・ｽ騾ｶ・ｽE・ｽ闔会ｽ･鬮ｯ髦ｪ・ｽE・ｽ驍ｨ莉咏ｲ具ｿｽE蛹ｻ縺咲ｹ晢ｽｩ郢晢ｽｼ隲繝ｻ・ｽE・ｽ・ｽE・ｽ郢ｧ繧・・ｽ・ｽ郢ｧﾂ繝ｻ繝ｻ
     const itemName = parts.slice(5).join('_');
-    const color = ''; // 繧�E�繝ｩ繝ｼ諠・�E��E�縺�E�蛻�E�騾碑ｧ�E�譫・
+    const color = ''; // 郢ｧ・ｽE・ｽ郢晢ｽｩ郢晢ｽｼ隲繝ｻ・ｽE・ｽ・ｽE・ｽ邵ｺ・ｽE・ｽ陋ｻ・ｽE・ｽ鬨ｾ遒托ｽｧ・ｽE・ｽ隴ｫ繝ｻ
     
-    // 繝�Eヰ繝�Eげ繝ｭ繧�E�繧定｡�E�遉ｺ・域怙蛻昴・5譫壹・縺�E�・・
+    // 郢晢ｿｽE繝ｰ郢晢ｿｽE縺堤ｹ晢ｽｭ郢ｧ・ｽE・ｽ郢ｧ螳夲ｽ｡・ｽE・ｽ驕会ｽｺ繝ｻ蝓滓呵崕譏ｴ繝ｻ5隴ｫ螢ｹ繝ｻ邵ｺ・ｽE・ｽ繝ｻ繝ｻ
     if (imageData.images.length < 5) {
-      addDebugLog(`逕ｻ蜒剰�E��E�譫・ ${filename} -> 蝨�E�蝓�E${prefecture}, 繧�E�繧�E�繝�E΁E${itemName}`);
+      addDebugLog(`騾包ｽｻ陷貞臆・ｽE・ｽ・ｽE・ｽ隴ｫ繝ｻ ${filename} -> 陜ｨ・ｽE・ｽ陜難ｿｽE${prefecture}, 郢ｧ・ｽE・ｽ郢ｧ・ｽE・ｽ郢晢ｿｽEﾎ・${itemName}`);
     }
     
     return {
@@ -262,71 +263,71 @@
     };
   }
   
-  // 蝨�E�蝓溷錐縺九ｉ繝輔か繝ｫ繝蜷阪�E�蜿門�E�・
+  // 陜ｨ・ｽE・ｽ陜捺ｺｷ骭千ｸｺ荵晢ｽ臥ｹ晁ｼ斐°郢晢ｽｫ郢敖陷ｷ髦ｪ・ｽE・ｽ陷ｿ髢・ｽE・ｽ繝ｻ
   function getRegionFolder(regionName) {
     const folderMap = {
-      '蛹玲�E��E�驕�E: '01hokkaido',
-      '譚ｱ蛹・: '02tohoku',
-      '髢�E�譚ｱ': '03kanto',
-      '荳�E�驛ｨ': '04chubu',
-      '霑�E柁E: '05kinki',
-      '荳�E�蝗ｽ': '06chugoku',
-      '蝗帛嵁E: '07shikoku',
-      '荵晏ｷ・: '08kyushu',
-      '豐也ｸ・: '09okinawa',
-      '繧�E�繝昴・繝�E: '10sports',
-      '豌ｴ譌城�E��E�': '11suizokukan',
-      '蟁E��遽': '12kisetsu'
+      '陋ｹ邇ｲ・ｽE・ｽ・ｽE・ｽ鬩包ｿｽE: '01hokkaido',
+      '隴夲ｽｱ陋ｹ繝ｻ: '02tohoku',
+      '鬮｢・ｽE・ｽ隴夲ｽｱ': '03kanto',
+      '闕ｳ・ｽE・ｽ鬩幢ｽｨ': '04chubu',
+      '髴托ｿｽE譟・: '05kinki',
+      '闕ｳ・ｽE・ｽ陜暦ｽｽ': '06chugoku',
+      '陜怜ｸ帛ｵ・: '07shikoku',
+      '闕ｵ譎擾ｽｷ繝ｻ: '08kyushu',
+      '雎蝉ｹ滂ｽｸ繝ｻ: '09okinawa',
+      '郢ｧ・ｽE・ｽ郢晄亢繝ｻ郢晢ｿｽE: '10sports',
+      '雎鯉ｽｴ隴悟沁・ｽE・ｽ・ｽE・ｽ': '11suizokukan',
+      '陝・・ｽ・ｽ驕ｽﾂ': '12kisetsu'
     };
     return folderMap[regionName] || '';
   }
   
-  // 菴�E�逕ｨ貂医∩逕ｻ蜒上ｒ霑�E�霍｡縺吶�E�繧�E�繝�Eヨ
+  // 闖ｴ・ｽE・ｽ騾包ｽｨ雋ょ現竏ｩ騾包ｽｻ陷剃ｸ奇ｽ帝恆・ｽE・ｽ髴搾ｽ｡邵ｺ蜷ｶ・ｽE・ｽ郢ｧ・ｽE・ｽ郢晢ｿｽE繝ｨ
   const usedImages = new Set();
   
-  // 繧�E�繧�E�繝�EΒ縺�E�蟁E��蠢懊�E繧狗判蜒上ｒ讀懁E���E�
+  // 郢ｧ・ｽE・ｽ郢ｧ・ｽE・ｽ郢晢ｿｽEﾎ堤ｸｺ・ｽE・ｽ陝・・ｽ・ｽ陟｢諛奇ｿｽE郢ｧ迢怜愛陷剃ｸ奇ｽ定ｮ諛・・ｽ・ｽ・ｽE・ｽ
   function findMatchingImage(displayName, region, color, prefectureNo) {
     if (!imageData.images.length) {
       return null;
     }
     
-    // 陦�E�遉ｺ蜷阪°繧牙�E蝓溘�E繧�E�繧�E�繝�EΒ蜷阪�E�蛻・屬
+    // 髯ｦ・ｽE・ｽ驕会ｽｺ陷ｷ髦ｪﾂｰ郢ｧ迚呻ｿｽE陜捺ｺ假ｿｽE郢ｧ・ｽE・ｽ郢ｧ・ｽE・ｽ郢晢ｿｽEﾎ定惺髦ｪ・ｽE・ｽ陋ｻ繝ｻ螻ｬ
     const displayParts = displayName.split(' ');
-    const itemRegion = displayParts[0]; // 譛蛻昴・驛ｨ蛻・′蝨�E�蝓�E
-    const itemName = displayParts.slice(1).join(' '); // 谿九ｊ縺後い繧�E�繝�EΒ蜷・
+    const itemRegion = displayParts[0]; // 隴崢陋ｻ譏ｴ繝ｻ鬩幢ｽｨ陋ｻ繝ｻ窶ｲ陜ｨ・ｽE・ｽ陜難ｿｽE
+    const itemName = displayParts.slice(1).join(' '); // 隹ｿ荵晢ｽ顔ｸｺ蠕後＞郢ｧ・ｽE・ｽ郢晢ｿｽEﾎ定惺繝ｻ
     
-    // 蝨�E�蝓溷錐縺�E�邨槭�E�霎�E�縺�E�・医�E�繧頑沐霆溘�E繝槭ャ繝�EΦ繧�E�・・
+    // 陜ｨ・ｽE・ｽ陜捺ｺｷ骭千ｸｺ・ｽE・ｽ驍ｨ讒ｭ・ｽE・ｽ髴趣ｿｽE・ｽ邵ｺ・ｽE・ｽ繝ｻ蛹ｻ・ｽE・ｽ郢ｧ鬆第ｲ宣怕貅假ｿｽE郢晄ｧｭ繝｣郢晢ｿｽEﾎｦ郢ｧ・ｽE・ｽ繝ｻ繝ｻ
     const regionImages = imageData.images.filter(img => {
-      // 菴�E�逕ｨ貂医∩縺�E�逕ｻ蜒上�E髯�E�螟�E
+      // 闖ｴ・ｽE・ｽ騾包ｽｨ雋ょ現竏ｩ邵ｺ・ｽE・ｽ騾包ｽｻ陷剃ｸ奇ｿｽE鬮ｯ・ｽE・ｽ陞滂ｿｽE
       if (usedImages.has(img.filename)) return false;
       
-      // 螳悟�E荳閾�E�
+      // 陞ｳ謔滂ｿｽE闕ｳﾂ髢ｾ・ｽE・ｽ
       if (img.prefecture === itemRegion || img.subRegion === itemRegion) return true;
-      // 驛ｨ蛻・�E�閾�E�
+      // 鬩幢ｽｨ陋ｻ繝ｻ・ｽE・ｽﾂ髢ｾ・ｽE・ｽ
       if (img.prefecture && img.prefecture.includes(itemRegion)) return true;
       if (img.subRegion && img.subRegion.includes(itemRegion)) return true;
-      // 騾・・驛ｨ蛻・�E�閾�E�・・temRegion縺檎判蜒上�E蝨�E�蝓溷錐縺�E�蜷�E�縺�E�繧後ｋ�E・
+      // 鬨ｾ繝ｻ繝ｻ鬩幢ｽｨ陋ｻ繝ｻ・ｽE・ｽﾂ髢ｾ・ｽE・ｽ繝ｻ繝ｻtemRegion邵ｺ讙主愛陷剃ｸ奇ｿｽE陜ｨ・ｽE・ｽ陜捺ｺｷ骭千ｸｺ・ｽE・ｽ陷ｷ・ｽE・ｽ邵ｺ・ｽE・ｽ郢ｧ蠕鯉ｽ具ｿｽE繝ｻ
       if (img.prefecture && itemRegion.includes(img.prefecture)) return true;
       if (img.subRegion && itemRegion.includes(img.subRegion)) return true;
       return false;
     });
     
-    // 蝨�E�蝓溘�E繝�Eメ縺励◁E��ｻ蜒乗�E繧偵Ο繧�E�縺�E�險倬鹸・育�E��E�貎斐↓�E・
+    // 陜ｨ・ｽE・ｽ陜捺ｺ假ｿｽE郢晢ｿｽE繝｡邵ｺ蜉ｱ笳・・ｽ・ｽ・ｻ陷剃ｹ暦ｿｽE郢ｧ蛛ｵﾎ溽ｹｧ・ｽE・ｽ邵ｺ・ｽE・ｽ髫ｪ蛟ｬ鮖ｸ繝ｻ閧ｲ・ｽE・ｽ・ｽE・ｽ雋取鱒竊難ｿｽE繝ｻ
     if (regionImages.length === 0) {
-      addDebugLog(`笶・蝨�E�蝓溘�E繝�Eメ縺�E�縺・ "${displayName}" (蝨�E�蝓�E ${itemRegion})`);
+      addDebugLog(`隨ｶ繝ｻ陜ｨ・ｽE・ｽ陜捺ｺ假ｿｽE郢晢ｿｽE繝｡邵ｺ・ｽE・ｽ邵ｺ繝ｻ "${displayName}" (陜ｨ・ｽE・ｽ陜難ｿｽE ${itemRegion})`);
     }
     
     if (!regionImages.length) {
-      // 蝨�E�蝓溘〒隕九▽縺九ｉ縺�E�縺・�E��E�蜷医・縲∝�E逕ｻ蜒上°繧峨ぁE���E�繝�EΒ蜷阪〒讀懁E���E�・井ｽ�E�逕ｨ貂医∩髯�E�螟厄�E�・
+      // 陜ｨ・ｽE・ｽ陜捺ｺ倥帝囎荵昶命邵ｺ荵晢ｽ臥ｸｺ・ｽE・ｽ邵ｺ繝ｻ・ｽE・ｽ・ｽE・ｽ陷ｷ蛹ｻ繝ｻ邵ｲ竏晢ｿｽE騾包ｽｻ陷剃ｸ環ｰ郢ｧ蟲ｨ縺・・ｽ・ｽ・ｽE・ｽ郢晢ｿｽEﾎ定惺髦ｪ縲定ｮ諛・・ｽ・ｽ・ｽE・ｽ繝ｻ莠包ｽｽ・ｽE・ｽ騾包ｽｨ雋ょ現竏ｩ鬮ｯ・ｽE・ｽ陞溷私・ｽE・ｽ繝ｻ
       const allNameMatch = imageData.images.find(img => {
         if (usedImages.has(img.filename)) return false;
         
         const imgName = img.itemName.toLowerCase();
         const searchName = itemName.toLowerCase();
         
-        // 螳悟�E荳閾�E�
+        // 陞ｳ謔滂ｿｽE闕ｳﾂ髢ｾ・ｽE・ｽ
         if (imgName === searchName) return true;
-        // 驛ｨ蛻・�E�閾�E�
+        // 鬩幢ｽｨ陋ｻ繝ｻ・ｽE・ｽﾂ髢ｾ・ｽE・ｽ
         if (imgName.includes(searchName)) return true;
         if (searchName.includes(imgName)) return true;
         
@@ -335,34 +336,34 @@
       
       if (allNameMatch) {
         usedImages.add(allNameMatch.filename);
-        addDebugLog(`笨・蜈ｨ逕ｻ蜒上°繧牙錐蜑阪・繝�Eメ: "${displayName}" -> ${allNameMatch.filename}`);
+        addDebugLog(`隨ｨ繝ｻ陷茨ｽｨ騾包ｽｻ陷剃ｸ環ｰ郢ｧ迚咎倹陷鷹亂繝ｻ郢晢ｿｽE繝｡: "${displayName}" -> ${allNameMatch.filename}`);
         return allNameMatch;
       }
       
-      addDebugLog(`笶・蜈ｨ逕ｻ蜒上°繧峨�E�繝槭ャ繝�E↑縺・ "${displayName}"`);
+      addDebugLog(`隨ｶ繝ｻ陷茨ｽｨ騾包ｽｻ陷剃ｸ環ｰ郢ｧ蟲ｨ・ｽE・ｽ郢晄ｧｭ繝｣郢晢ｿｽE竊醍ｸｺ繝ｻ "${displayName}"`);
       return null;
     }
     
-    // 繧�E�繧�E�繝�EΒ蜷阪〒繝槭ャ繝�EΦ繧�E�・医�E�繧頑沐霆溘�E・・
+    // 郢ｧ・ｽE・ｽ郢ｧ・ｽE・ｽ郢晢ｿｽEﾎ定惺髦ｪ縲堤ｹ晄ｧｭ繝｣郢晢ｿｽEﾎｦ郢ｧ・ｽE・ｽ繝ｻ蛹ｻ・ｽE・ｽ郢ｧ鬆第ｲ宣怕貅假ｿｽE繝ｻ繝ｻ
     const nameMatch = regionImages.find(img => {
       const imgName = img.itemName.toLowerCase();
       const searchName = itemName.toLowerCase();
       
-      // 螳悟�E荳閾�E�
+      // 陞ｳ謔滂ｿｽE闕ｳﾂ髢ｾ・ｽE・ｽ
       if (imgName === searchName) return true;
       
-      // 驛ｨ蛻・�E�閾�E�・医ぁE���E�繝�EΒ蜷阪′逕ｻ蜒丞錐縺�E�蜷�E�縺�E�繧後ｋ�E・
+      // 鬩幢ｽｨ陋ｻ繝ｻ・ｽE・ｽﾂ髢ｾ・ｽE・ｽ繝ｻ蛹ｻ縺・・ｽ・ｽ・ｽE・ｽ郢晢ｿｽEﾎ定惺髦ｪ窶ｲ騾包ｽｻ陷剃ｸ樣倹邵ｺ・ｽE・ｽ陷ｷ・ｽE・ｽ邵ｺ・ｽE・ｽ郢ｧ蠕鯉ｽ具ｿｽE繝ｻ
       if (imgName.includes(searchName)) return true;
       
-      // 騾・・驛ｨ蛻・�E�閾�E�・育判蜒丞錐縺後い繧�E�繝�EΒ蜷阪↓蜷�E�縺�E�繧後ｋ�E・
+      // 鬨ｾ繝ｻ繝ｻ鬩幢ｽｨ陋ｻ繝ｻ・ｽE・ｽﾂ髢ｾ・ｽE・ｽ繝ｻ閧ｲ蛻､陷剃ｸ樣倹邵ｺ蠕後＞郢ｧ・ｽE・ｽ郢晢ｿｽEﾎ定惺髦ｪ竊楢惺・ｽE・ｽ邵ｺ・ｽE・ｽ郢ｧ蠕鯉ｽ具ｿｽE繝ｻ
       if (searchName.includes(imgName)) return true;
       
-      // 蜊倩�E�槭Ξ繝吶Ν縺�E�縺�E�繝槭ャ繝�EΦ繧�E�
+      // 陷雁ｩ・ｽE・ｽ讒ｭﾎ樒ｹ晏生ﾎ晉ｸｺ・ｽE・ｽ邵ｺ・ｽE・ｽ郢晄ｧｭ繝｣郢晢ｿｽEﾎｦ郢ｧ・ｽE・ｽ
       const imgWords = imgName.split('_');
       const searchWords = searchName.split(' ');
       
       for (const searchWord of searchWords) {
-        if (searchWord.length > 1) { // 1譁�E�E�励・蜊倩�E�槭・髯�E�螟�E
+        if (searchWord.length > 1) { // 1隴・ｿｽE・ｽE・ｽ蜉ｱ繝ｻ陷雁ｩ・ｽE・ｽ讒ｭ繝ｻ鬮ｯ・ｽE・ｽ陞滂ｿｽE
           for (const imgWord of imgWords) {
             if (imgWord.includes(searchWord) || searchWord.includes(imgWord)) {
               return true;
@@ -376,33 +377,33 @@
     
     if (nameMatch) {
       usedImages.add(nameMatch.filename);
-      addDebugLog(`笨・蝨�E�蝓�E蜷榊��繝槭ャ繝�E "${displayName}" -> ${nameMatch.filename}`);
+      addDebugLog(`隨ｨ繝ｻ陜ｨ・ｽE・ｽ陜難ｿｽE陷ｷ讎奇ｿｽ・ｽ郢晄ｧｭ繝｣郢晢ｿｽE "${displayName}" -> ${nameMatch.filename}`);
       return nameMatch;
     } else {
-      addDebugLog(`笶・蝨�E�蝓�E蜷榊��繝槭ャ繝�E�E��E�謨・ "${displayName}" (蝨�E�蝓�E ${itemRegion}, 繧�E�繧�E�繝�E΁E ${itemName})`);
+      addDebugLog(`隨ｶ繝ｻ陜ｨ・ｽE・ｽ陜難ｿｽE陷ｷ讎奇ｿｽ・ｽ郢晄ｧｭ繝｣郢晢ｿｽE・ｽE・ｽ・ｽE・ｽ隰ｨ繝ｻ "${displayName}" (陜ｨ・ｽE・ｽ陜難ｿｽE ${itemRegion}, 郢ｧ・ｽE・ｽ郢ｧ・ｽE・ｽ郢晢ｿｽEﾎ・ ${itemName})`);
     }
     
-    // 繧�E�繝ｩ繝ｼ縺�E�繝槭ャ繝�EΦ繧�E�
+    // 郢ｧ・ｽE・ｽ郢晢ｽｩ郢晢ｽｼ邵ｺ・ｽE・ｽ郢晄ｧｭ繝｣郢晢ｿｽEﾎｦ郢ｧ・ｽE・ｽ
     if (color) {
       const colorMatch = regionImages.find(img => 
         img.color && img.color.toLowerCase().includes(color.toLowerCase())
       );
       if (colorMatch) {
         usedImages.add(colorMatch.filename);
-        addDebugLog(`笨・繧�E�繝ｩ繝ｼ繝槭ャ繝�E "${displayName}" -> ${colorMatch.filename}`);
+        addDebugLog(`隨ｨ繝ｻ郢ｧ・ｽE・ｽ郢晢ｽｩ郢晢ｽｼ郢晄ｧｭ繝｣郢晢ｿｽE "${displayName}" -> ${colorMatch.filename}`);
         return colorMatch;
       }
     }
     
-    // 譛蛻昴・譛ｪ菴�E�逕ｨ逕ｻ蜒上ｒ霑斐�E・医ヵ繧�E�繝ｼ繝ｫ繝�Eャ繧�E�・・
+    // 隴崢陋ｻ譏ｴ繝ｻ隴幢ｽｪ闖ｴ・ｽE・ｽ騾包ｽｨ騾包ｽｻ陷剃ｸ奇ｽ帝恆譁撰ｿｽE繝ｻ蛹ｻ繝ｵ郢ｧ・ｽE・ｽ郢晢ｽｼ郢晢ｽｫ郢晢ｿｽE繝｣郢ｧ・ｽE・ｽ繝ｻ繝ｻ
     if (regionImages.length > 0) {
       const fallbackImage = regionImages[0];
       usedImages.add(fallbackImage.filename);
-      addDebugLog(`笞・・繝輔か繝ｼ繝ｫ繝�Eャ繧�E�: "${displayName}" -> ${fallbackImage.filename}`);
+      addDebugLog(`隨橸｣ｰ繝ｻ繝ｻ郢晁ｼ斐°郢晢ｽｼ郢晢ｽｫ郢晢ｿｽE繝｣郢ｧ・ｽE・ｽ: "${displayName}" -> ${fallbackImage.filename}`);
       return fallbackImage;
     }
     
-    addDebugLog(`笶・譛邨ら噪縺�E�繝槭ャ繝�E↑縺・ "${displayName}"`);
+    addDebugLog(`隨ｶ繝ｻ隴崢驍ｨ繧牙飭邵ｺ・ｽE・ｽ郢晄ｧｭ繝｣郢晢ｿｽE竊醍ｸｺ繝ｻ "${displayName}"`);
     return null;
   }
 
@@ -416,7 +417,7 @@
     } catch {}
     if (!imageData || !Array.isArray(imageData.images) || !imageData.images.length) return null;
 
-    const normalize = (s) => (s || '').toString().trim().replace(/\s+/g, '').replace(/繝｢繧�E�繧�E�$/,'');
+    const normalize = (s) => (s || '').toString().trim().replace(/\s+/g, '').replace(/郢晢ｽ｢郢ｧ・ｽE・ｽ郢ｧ・ｽE・ｽ$/,'');
     const parts = (displayName || '').split(' ');
     const regionCand = normalize(parts[0] || region || '');
     const itemName = (parts.slice(1).join(' ') || '').toLowerCase();
@@ -457,39 +458,39 @@ async function boot2() {
   try {
     const hasAnyProgress = Object.keys(localStorage).some(k => k.startsWith('mokeke:v1:'));
     if (!hasAnyProgress) {
-      setStatus('蜿�E�荳翫・縲後Μ繧�E�繝郁�E��E�霎ｼ縲阪°繧峨ヵ繧�E�繧�E�繝ｫ繧帝�E謚槭�E�縺�E�縺上□縺輔！E);
+      setStatus('陷ｿ・ｽE・ｽ闕ｳ鄙ｫ繝ｻ邵ｲ蠕湖懃ｹｧ・ｽE・ｽ郢晞メ・ｽE・ｽ・ｽE・ｽ髴趣ｽｼ邵ｲ髦ｪﾂｰ郢ｧ蟲ｨ繝ｵ郢ｧ・ｽE・ｽ郢ｧ・ｽE・ｽ郢晢ｽｫ郢ｧ蟶晢ｿｽE隰壽ｧｭ・ｽE・ｽ邵ｺ・ｽE・ｽ邵ｺ荳岩味邵ｺ霈費ｼ・);
     }
   } catch {}
 }
 function start() {
-    addDebugLog('start() 髢�E�謨�E�縺悟他縺�E�蜁E��縺輔ｌ縺�E�縺励◁E);
+    addDebugLog('start() 鬮｢・ｽE・ｽ隰ｨ・ｽE・ｽ邵ｺ謔滉ｻ也ｸｺ・ｽE・ｽ陷・・ｽ・ｽ邵ｺ霈費ｽ檎ｸｺ・ｽE・ｽ邵ｺ蜉ｱ笳・);
     try { 
       boot2(); 
     }
     catch (e) { 
-      const errorMsg = '蛻晁E��蛹悶お繝ｩ繝ｼ: ' + e.message;
+      const errorMsg = '陋ｻ譎・・ｽ・ｽ陋ｹ謔ｶ縺顔ｹ晢ｽｩ郢晢ｽｼ: ' + e.message;
       setStatus(errorMsg);
       addDebugLog(errorMsg);
-      addDebugLog('繧�E�繧�E�繝�Eけ繝医Ξ繝ｼ繧�E�: ' + e.stack);
+      addDebugLog('郢ｧ・ｽE・ｽ郢ｧ・ｽE・ｽ郢晢ｿｽE縺醍ｹ晏現ﾎ樒ｹ晢ｽｼ郢ｧ・ｽE・ｽ: ' + e.stack);
       try { console.error(e); } catch {} 
     }
   }
 
-  addDebugLog('繧�E�繧�E�繝ｪ繝励ヨ隱�E�縺�E�霎ｼ縺�E�螳御�E�・);
+  addDebugLog('郢ｧ・ｽE・ｽ郢ｧ・ｽE・ｽ郢晢ｽｪ郢晏干繝ｨ髫ｱ・ｽE・ｽ邵ｺ・ｽE・ｽ髴趣ｽｼ邵ｺ・ｽE・ｽ陞ｳ蠕｡・ｽE・ｽ繝ｻ);
   addDebugLog(`document.readyState: ${document.readyState}`);
 
   if (document.readyState === 'loading') {
-    addDebugLog('DOMContentLoaded 繧�E�繝吶Φ繝医�E�蠕�E�E�滉ｸ�E�');
+    addDebugLog('DOMContentLoaded 郢ｧ・ｽE・ｽ郢晏生ﾎｦ郢晏現・ｽE・ｽ陟包ｿｽE・ｽE・ｽ貊会ｽｸ・ｽE・ｽ');
     document.addEventListener('DOMContentLoaded', start);
   } else {
-    addDebugLog('DOM隗｣譫先ｸ医∩縲∝叉譎り�E��E�蜍�E);
-    // DOM 隗｣譫先ｸ医∩縺�E�繧牙叉譎り�E��E�蜍�E
+    addDebugLog('DOM髫暦ｽ｣隴ｫ蜈茨ｽｸ蛹ｻ竏ｩ邵ｲ竏晏初隴弱ｊ・ｽE・ｽ・ｽE・ｽ陷搾ｿｽE);
+    // DOM 髫暦ｽ｣隴ｫ蜈茨ｽｸ蛹ｻ竏ｩ邵ｺ・ｽE・ｽ郢ｧ迚吝初隴弱ｊ・ｽE・ｽ・ｽE・ｽ陷搾ｿｽE
     start();
   }
 
   // New image resolve + viewer using CSV when possible
   function showImage2(item) {
-    addDebugLog(`逕ｻ蜒剰�E��E�遉ｺ髢句�E�・ ${item.name} (${item.category})`);
+    addDebugLog(`騾包ｽｻ陷貞臆・ｽE・ｽ・ｽE・ｽ驕会ｽｺ鬮｢蜿･・ｽE・ｽ繝ｻ ${item.name} (${item.category})`);
     let imagePath = null;
     try {
       if (item && item.image && item.image.path) {
@@ -499,18 +500,18 @@ function start() {
         if (m && m.path) imagePath = m.path;
       }
     } catch {}
-    addDebugLog(`豎ｺ螳壹�E�縺溽判蜒上ヱ繧�E�: ${imagePath || '(縺�E�縺・'}`);
+    addDebugLog(`雎趣ｽｺ陞ｳ螢ｹ・ｽE・ｽ邵ｺ貅ｽ蛻､陷剃ｸ翫Τ郢ｧ・ｽE・ｽ: ${imagePath || '(邵ｺ・ｽE・ｽ邵ｺ繝ｻ'}`);
 
     if (imagePath) {
       els.imageTitle.textContent = item.name;
       els.mainImage.src = imagePath;
       els.mainImage.alt = item.name;
-      els.imageInfo.textContent = `${item.category} - ${item.name} (${item.color || '濶�E�荳肴・'})`;
+      els.imageInfo.textContent = `${item.category} - ${item.name} (${item.color || '豼ｶ・ｽE・ｽ闕ｳ閧ｴ繝ｻ'})`;
       els.imageViewer.style.display = 'flex';
-      els.mainImage.onload = () => { addDebugLog(`逕ｻ蜒剰�E��E�縺�E�霎ｼ縺�E�謌仙粥: ${imagePath}`); };
-      els.mainImage.onerror = () => { addDebugLog(`逕ｻ蜒剰�E��E�縺�E�霎ｼ縺�E�螟ｱ謨・ ${imagePath}`); };
+      els.mainImage.onload = () => { addDebugLog(`騾包ｽｻ陷貞臆・ｽE・ｽ・ｽE・ｽ邵ｺ・ｽE・ｽ髴趣ｽｼ邵ｺ・ｽE・ｽ隰御ｻ咏ｲ･: ${imagePath}`); };
+      els.mainImage.onerror = () => { addDebugLog(`騾包ｽｻ陷貞臆・ｽE・ｽ・ｽE・ｽ邵ｺ・ｽE・ｽ髴趣ｽｼ邵ｺ・ｽE・ｽ陞滂ｽｱ隰ｨ繝ｻ ${imagePath}`); };
     } else {
-      addDebugLog(`逕ｻ蜒上′隕九▽縺九ｊ縺�E�縺帙ａE ${item.name}`);
+      addDebugLog(`騾包ｽｻ陷剃ｸ岩ｲ髫穂ｹ昶命邵ｺ荵晢ｽ顔ｸｺ・ｽE・ｽ邵ｺ蟶呻ｽ・ ${item.name}`);
     }
   }
 })();
