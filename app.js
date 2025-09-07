@@ -1444,7 +1444,8 @@ imageData.images = augmented;
 imageData.regions = [...new Set(augmented.map(it => it.regionName || it.prefecture).filter(Boolean))].sort();
 }
 } catch {}
-sync();\r\n    // Try default list on boot
+sync();
+    // Try default list on boot
     let hasAnyProgress = false;
     try { hasAnyProgress = Object.keys(localStorage).some(k => k.startsWith('mokeke:v1:')); } catch {}
     if (!data.items || data.items.length === 0) {
