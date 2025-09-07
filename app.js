@@ -30,6 +30,7 @@
     btnClearDebug: document.getElementById('btnClearDebug'),
     debugBox: document.getElementById('debugBox'),
     btnTest: document.getElementById('btnTest'),
+    btnStart: document.getElementById('btnStart'),
     imageViewer: document.getElementById('imageViewer'),
     imageTitle: document.getElementById('imageTitle'),
     mainImage: document.getElementById('mainImage'),
@@ -1580,3 +1581,32 @@ function start() {
     }
   }
 })();
+    // はじめる！ボタン: mokekelist_latest.txt を読み込み
+    if (els.btnStart) {
+      els.btnStart.addEventListener('click', async () => {
+        try {
+          showLoading('リストを読み込み中…');
+          let txt = await loadFromRelativeFile('mokekelist_latest.txt');
+          if (!txt) {
+            // 念のためのフォールバック
+            const candidates = ['mokekelist_latest.txt','mokekelist_lastest.txt','mokekelist_20250906.txt','mokekelist.txt'];
+            for (const name of candidates) {
+              txt = await loadFromRelativeFile(name);
+              if (txt && txt.trim()) { lastListName = name; break; }
+            }
+          } else {
+            lastListName = 'mokekelist_latest.txt';
+          }
+          if (txt) {
+            setupListWithOptions(txt, { overwriteProgress: true });
+            setStatus(`${data.items.length} 件を読み込みました`);
+          } else {
+            setStatus('リストファイルが見つかりませんでした');
+          }
+        } catch (e) {
+          setStatus('読み込みでエラーが発生しました');
+        } finally {
+          hideLoading();
+        }
+      });
+    }
