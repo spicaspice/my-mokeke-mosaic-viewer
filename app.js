@@ -2,8 +2,8 @@
   'use strict';
 
   // Constants (use Unicode escapes to avoid encoding issues in source)
-  const UNCAT = '\u672a\u5206\u985e'; // 未分類
-  const NAME_UNKNOWN = '(\u540d\u79f0\u4e0d\u660e)'; // (名称不明)
+  const UNCAT = '\u672a\u5206\u985e'; // 譛ｪ蛻・�E�・
+  const NAME_UNKNOWN = '(\u540d\u79f0\u4e0d\u660e)'; // (蜷咲�E��E�荳肴・)
 
   const els = {
     search: document.getElementById('search'),
@@ -62,775 +62,20 @@
     } catch {}
   }
   function saveProgress() {
-    localStorage.setItem(storageKey, JSON.stringify([...progress]));
-  }
-  function loadOverrides() {
-    try {
-      const json = localStorage.getItem(storageKey + ':imgOverrides');
-      imageOverrides = json ? JSON.parse(json) : {};
-    } catch { imageOverrides = {}; }
-  }
-  function saveOverrides() {
-    try { localStorage.setItem(storageKey + ':imgOverrides', JSON.stringify(imageOverrides || {})); } catch {}
-  }
-
-  function setStatus(msg) {
-    if (els.statusText) els.statusText.textContent = msg;
-    try { console.log('[mokeke]', msg); } catch {}
-    addDebugLog(msg);
-  }
-
-  function showLoading(msg) {
-    const ov = document.getElementById('loading');
-    if (ov) {
-      const t = document.getElementById('loadingText');
-      if (t && msg) t.textContent = msg;
-      ov.style.display = 'block';
-      try { document.body.classList.add('loading'); } catch {}
-    } else {
-      setStatus(msg || '処理中...');
-    }
-  }
-  function hideLoading() {
-    const ov = document.getElementById('loading');
-    if (ov) ov.style.display = 'none';
-    try { document.body.classList.remove('loading'); } catch {}
-  }
-
-  function addDebugLog(msg) {
-    const timestamp = new Date().toLocaleTimeString();
-    const logEntry = `[${timestamp}] ${msg}`;
-    
-    // コンソールにも出力
-    try { console.log('[mokeke-debug]', logEntry); } catch {}
-    
-    // デバッグログエリアに出力
-    if (els.debugLog) {
-      els.debugLog.textContent += logEntry + '\n';
-      els.debugLog.scrollTop = els.debugLog.scrollHeight;
-    }
-  }
-
-  // Encoding detection: try UTF-8 / Shift_JIS / UTF-16LE / UTF-16BE and pick best
-  function decodeBest(arrayBuffer) {
-    const bytes = new Uint8Array(arrayBuffer);
-    const hasBOM_LE = bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE;
-    const hasBOM_BE = bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF;
-
-    addDebugLog(`ファイルサイズ: ${bytes.length} bytes`);
-    addDebugLog(`BOM_LE: ${hasBOM_LE}, BOM_BE: ${hasBOM_BE}`);
-
-    const candidates = [];
-    const push = (label) => { 
-      try { 
-        const decoded = new TextDecoder(label).decode(arrayBuffer);
-        candidates.push([label, decoded]);
-        addDebugLog(`エンコーディング ${label}: ${decoded.substring(0, 50)}...`);
-      } catch (e) {
-        addDebugLog(`エンコーディング ${label} でエラー: ${e.message}`);
-      }
-    };
-
-    if (hasBOM_LE) push('utf-16le');
-    if (hasBOM_BE) push('utf-16be');
-    push('utf-8'); // UTF-8を最初に試す
-    push('shift_jis'); // cp932
-    push('euc-jp'); // 追加
-    push('iso-2022-jp'); // 追加
-
-    if (!hasBOM_LE && !hasBOM_BE) {
-      let zerosEven = 0, zerosOdd = 0;
-      for (let i = 0; i < bytes.length; i++) {
-        if (i % 2 === 0) {
-          zerosEven += (bytes[i] === 0);
-        } else {
-          zerosOdd += (bytes[i] === 0);
-        }
-      }
-      const ratioEven = zerosEven / Math.max(1, Math.ceil(bytes.length / 2));
-      const ratioOdd = zerosOdd / Math.max(1, Math.floor(bytes.length / 2));
-      if (ratioEven > 0.2 || ratioOdd > 0.2) { push('utf-16le'); push('utf-16be'); }
-    }
-
-    const score = (s) => {
-      if (!s) return -1e9;
-      let jp = 0, bad = 0, ascii = 0, tab = 0;
-      for (const ch of s) {
-        const code = ch.codePointAt(0);
-        const isJP = (code>=0x3040&&code<=0x30ff) || (code>=0x4e00&&code<=0x9fff) || (code>=0xff66&&code<=0xff9f);
-        const isASCII = code >= 32 && code <= 126;
-        if (isJP) jp++;
-        if (isASCII) ascii++;
-        if (ch === '\t') tab++;
-        if (ch === '\uFFFD') bad++;
-      }
-      const len = s.length || 1;
-      // UTF-8を優先し、タブ文字（TSV形式）がある場合はボーナス
-      const baseScore = jp * 3 + ascii * 1 - bad * 10 - (len < 5 ? 5 : 0);
-      const tabBonus = tab > 10 ? 1000 : 0; // TSV形式の場合は大幅ボーナス
-      return baseScore + tabBonus;
-    };
-
-    let best = '', bestScore = -1e9;
-    for (const [label, text] of candidates) {
-      let sc = score(text);
-      // UTF-8に明示的なボーナスを追加
-      if (label === 'utf-8') {
-        sc += 5000; // UTF-8ボーナス
-        addDebugLog(`${label} スコア: ${sc} (UTF-8ボーナス適用)`);
-      } else {
-        addDebugLog(`${label} スコア: ${sc}`);
-      }
-      if (sc > bestScore) { best = text; bestScore = sc; }
-    }
-    
-    addDebugLog(`選択されたエンコーディングのスコア: ${bestScore}`);
-    return best || new TextDecoder('utf-8').decode(arrayBuffer);
-  }
-
-  // Parsing: INI-like format
-  function parseList(text) {
-    const items = [];
-    const categories = new Set();
-    let current = null;
-    const lines = text.split(/\r?\n/);
-    for (const raw of lines) {
-      const line = raw.trim();
-      if (!line || line.startsWith('#')) continue;
-      const m = line.match(/^\[(.+?)\]$/);
-      if (m) { current = m[1].trim(); categories.add(current); continue; }
-      const name = line;
-      const cat = current || UNCAT;
-      categories.add(cat);
-      const id = `${cat}::${name}`;
-      items.push({ id, name, category: cat });
-    }
-    return { categories: [...categories], items };
-  }
-
-  function renderCategories() {
-    const frag = document.createDocumentFragment();
-    const allCounts = countByCategory();
-    
-    // 地域分類は削除 - 大分類から直接開始
-    
-    // 大分類・中分類の階層構造で表示（折りたたみ式）
-    if (data.majorCategories && data.majorCategories.length > 0) {
-      for (const majorCat of data.majorCategories) {
-        // この大分類に属する中分類を取得
-        const minorCats = data.items
-          .filter(item => item.majorCategory === majorCat)
-          .map(item => item.minorCategory)
-          .filter((value, index, self) => self.indexOf(value) === index)
-          .sort();
-        
-        // 大分類の進捗を計算
-        const majorCount = data.items.filter(item => item.majorCategory === majorCat).length;
-        const majorDone = data.items.filter(item => 
-          item.majorCategory === majorCat && progress.has(item.id)
-        ).length;
-        
-        // 大分類の折りたたみセクション
-        const details = document.createElement('details');
-        details.style.marginBottom = '4px';
-        
-        // この大分類に選択された中分類がある場合は開いた状態にする
-        const hasSelectedMinor = minorCats.some(minorCat => 
-          selectedCategory === `${majorCat} > ${minorCat}`
-        );
-        if (hasSelectedMinor) {
-          details.open = true;
-        }
-        
-        const summary = document.createElement('summary');
-        summary.style.padding = '6px 8px';
-        summary.style.cursor = 'pointer';
-        summary.style.color = '#c7d2e3';
-        summary.style.fontSize = '14px';
-        summary.style.listStyle = 'none';
-        summary.style.userSelect = 'none';
-        summary.style.borderRadius = '6px';
-        summary.style.display = 'flex';
-        summary.style.justifyContent = 'space-between';
-        summary.style.alignItems = 'center';
-        
-        const majorText = document.createElement('span');
-        majorText.textContent = majorCat;
-        
-        const majorBadge = document.createElement('span');
-        majorBadge.className = 'badge';
-        majorBadge.textContent = `${majorDone}/${majorCount}`;
-        majorBadge.style.float = 'none';
-        majorBadge.style.marginLeft = '8px';
-        
-        summary.appendChild(majorText);
-        summary.appendChild(majorBadge);
-        details.appendChild(summary);
-        
-        // 中分類リスト
-        const minorList = document.createElement('ul');
-        minorList.style.listStyle = 'none';
-        minorList.style.margin = '0';
-        minorList.style.padding = '0';
-        minorList.style.paddingLeft = '16px';
-        
-        for (const minorCat of minorCats) {
-          const count = data.items.filter(item => 
-            item.majorCategory === majorCat && item.minorCategory === minorCat
-          ).length;
-          const done = data.items.filter(item => 
-            item.majorCategory === majorCat && 
-            item.minorCategory === minorCat && 
-            progress.has(item.id)
-          ).length;
-          
-          const li = document.createElement('li');
-          li.textContent = minorCat;
-          li.dataset.cat = `${majorCat} > ${minorCat}`;
-          li.className = (selectedCategory === `${majorCat} > ${minorCat}`) ? 'active' : '';
-          li.style.padding = '4px 8px';
-          li.style.fontSize = '13px';
-          li.style.cursor = 'pointer';
-          li.style.borderRadius = '4px';
-          li.style.marginBottom = '2px';
-          li.style.display = 'flex';
-          li.style.justifyContent = 'space-between';
-          li.style.alignItems = 'center';
-          
-          const badge = document.createElement('span');
-          badge.className = 'badge';
-          badge.textContent = `${done}/${count}`;
-          badge.style.float = 'none';
-          badge.style.marginLeft = '8px';
-          
-          li.appendChild(badge);
-          li.addEventListener('click', (e) => {
-            e.preventDefault(); // デフォルトの動作を防ぐ
-            e.stopPropagation(); // 親要素のクリックイベントを防ぐ
-            selectedCategory = (selectedCategory === `${majorCat} > ${minorCat}`) ? null : `${majorCat} > ${minorCat}`;
-            sync();
-          });
-          minorList.appendChild(li);
-        }
-        
-        details.appendChild(minorList);
-        frag.appendChild(details);
-      }
-    } else {
-      // フォールバック: 従来のカテゴリ表示
-      data.categories.sort((a, b) => {
-        const aNum = parseInt(a.split(' ')[0]) || 999;
-        const bNum = parseInt(b.split(' ')[0]) || 999;
-        if (aNum !== bNum) return aNum - bNum;
-        return a.localeCompare(b, 'ja');
-      });
-      
-    for (const cat of data.categories) {
-      const li = document.createElement('li');
-      li.textContent = cat;
-      li.dataset.cat = cat;
-      li.className = (selectedCategory === cat) ? 'active' : '';
-      const badge = document.createElement('span');
-      badge.className = 'badge';
-      const total = allCounts[cat]?.total ?? 0;
-      const done = allCounts[cat]?.done ?? 0;
-      badge.textContent = `${done}/${total}`;
-      li.appendChild(badge);
-      li.addEventListener('click', () => {
-        selectedCategory = (selectedCategory === cat) ? null : cat;
-        sync();
-      });
-      frag.appendChild(li);
-      }
-    }
-    els.categoryList.replaceChildren(frag);
-  }
-
-  function countByCategory() {
-    const map = {};
-    for (const it of data.items) {
-      const entry = map[it.category] || (map[it.category] = { total: 0, done: 0 });
-      entry.total++;
-      if (progress.has(it.id)) entry.done++;
-    }
-    return map;
-  }
-
-  function renderItems() {
-    const q = (els.search.value || '').trim().toLowerCase();
-    const status = els.statusFilter.value; // all|todo|done
-    const frag = document.createDocumentFragment();
-    let total = 0, done = 0;
-    const filtered = data.items.filter(it => {
-      // 地域分類でのフィルタリング
-      if (selectedCategory && selectedCategory.startsWith('region_')) {
-        const region = selectedCategory.replace('region_', '');
-        if (it.region !== region && it.image?.regionName !== region) return false;
-      } else if (selectedCategory && it.category !== selectedCategory) {
-        return false;
-      }
-      
-      if (q) {
-        // 地域名、名前、カラー区分で検索
-        const searchText = `${it.region || ''} ${it.originalName || ''} ${it.color || ''}`.toLowerCase();
-        if (!searchText.includes(q)) return false;
-      }
-      const isDone = progress.has(it.id);
-      if (status === 'todo' && isDone) return false;
-      if (status === 'done' && !isDone) return false;
-      return true;
-    });
-
-    for (const it of data.items) {
-      total++;
-      if (progress.has(it.id)) done++;
-    }
-    els.countTotal.textContent = String(total);
-    els.countDone.textContent = String(done);
-    els.countTodo.textContent = String(total - done);
-
-    filtered.sort((a,b)=> (b.order||0)-(a.order||0));
-    for (const it of filtered) {
-      if (!it.image && imageData && imageData.images && imageData.images.length) {
-        try {
-          const m = smartFindImage(it.name || it.originalName || '', it.region || '', it.color || '', it.prefectureNo || '', it.order || 0);
-          if (m) it.image = m;
-        } catch {}
-      }
-      try {
-        if (!it.image && imageOverrides && imageOverrides[it.id]) {
-          it.image = { path: imageOverrides[it.id], filename: (imageOverrides[it.id]||'').split('/').pop(), regionName: it.region };
-        }
-      } catch {}
-      const li = document.createElement('li');
-      li.className = 'item' + (progress.has(it.id) ? ' done' : '');
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = progress.has(it.id);
-      cb.addEventListener('change', () => {
-        if (cb.checked) progress.add(it.id); else progress.delete(it.id);
-        saveProgress();
-        sync();
-      });
-      const label = document.createElement('div');
-      let categoryText = escapeHtml(it.category);
-      let dateText = '';
-      
-      // 入手日がある場合は表示
-      if (it.acquiredDate) {
-        dateText = ` <span style="color: #4ade80; font-size: 0.8em;">[${escapeHtml(it.acquiredDate)}]</span>`;
-      }
-      
-      // 画像がある場合は表示
-      let imageHtml = '';
-      if (it.image) {
-        imageHtml = `<img src="${it.image.path}" alt="${escapeHtml(it.name)}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; margin-right: 10px; float: left;" onerror="this.style.display='none';">`;
-      } else {
-        imageHtml = `<span class="thumb-placeholder" style="display:inline-flex;align-items:center;justify-content:center;width:60px;height:60px;border-radius:6px;background:#1a1f2e;border:1px dashed #263045;margin-right:10px;float:left;color:#64748b;font-size:10px;">NO IMAGE</span>`;
-      }
-      
-      label.innerHTML = `${imageHtml}<div>${escapeHtml(it.name)}${dateText}</div><small>${categoryText}</small>`;
-      const thumbImg = label.querySelector('img');
-      if (thumbImg) {
-        thumbImg.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (e.shiftKey) { chooseOverrideForItem(it); return; }
-          try { showImage2(it); } catch { showImage(it); }
-        });
-        thumbImg.style.cursor = 'pointer';
-      }
-      
-      // 画像表示ボタンを追加
-      const imageBtn = document.createElement('button');
-      imageBtn.className = 'image-btn';
-      imageBtn.textContent = '画像';
-      imageBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (e.shiftKey) { chooseOverrideForItem(it); return; }
-        showImage2(it);
-      });
-      
-      li.append(cb, label, imageBtn);
-      frag.appendChild(li);
-    }
-    els.itemList.replaceChildren(frag);
-  }
-
-  function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
-
-  function sync() {
-    renderCategories();
-    renderItems();
-  }
-
-  function chooseOverrideForItem(item) {
-    try {
-      if (!imageData || !Array.isArray(imageData.images) || !imageData.images.length) { alert('画像データが読み込まれていません'); return; }
-      const kw = prompt('画像候補のキーワードを入力（例: 名称の一部）', (item.originalName || item.name || ''));
-      if (kw === null) return;
-      const q = kw.toLowerCase().trim();
-      const norm = (s)=> (s||'').toString().toLowerCase();
-      const pool = imageData.images.filter(img => {
-        const inRegion = !item.region || norm(img.regionName||img.prefecture||'').includes(norm(item.region));
-        const nameHit = norm(img.itemName).includes(q) || norm(img.filename).includes(q);
-        return inRegion && nameHit;
-      });
-      if (!pool.length) { alert('候補が見つかりません'); return; }
-      const top = pool.slice(0, 20);
-      const menu = top.map((img,i)=> `${i+1}: ${img.filename} [${img.regionName||''}] ${img.itemName||''}`).join('\n');
-      const pick = prompt(`候補を選んでください (1-${top.length})\n${menu}`, '1');
-      if (pick === null) return;
-      const idx = Math.max(1, Math.min(top.length, parseInt(pick,10)||1)) - 1;
-      const chosen = top[idx];
-      imageOverrides[item.id] = chosen.path;
-      try { localStorage.setItem(storageKey + ':imgOverrides', JSON.stringify(imageOverrides)); } catch {}
-      sync();
-      setStatus('画像を差し替えました');
-    } catch (e) { alert('画像差し替えでエラー: ' + e.message); }
-  }
-
-  function getListCandidates() {
-    return [
-      'mokekelist_latest.txt',
-      'mokekelist_lastest.txt',
-      'mokekelist_20250906.txt',
-      'mokekelist.txt'
-    ];
-  }
-  async function loadFirstAvailableList(cands) {
-    for (const name of cands) {
-      const txt = await loadFromRelativeFile(name);
-      if (txt && txt.trim()) { lastListName = name; return txt; }
-    }
-    return '';
-  }
-
-  async function loadFromRelativeFile(path) {
-    try {
-      const res = await fetch(path, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      const buf = await res.arrayBuffer();
-      return decodeBest(buf);
-    } catch (e) {
-      console.warn('fetch failed:', e);
-      return '';
-    }
-  }
-
-  function initEvents() {
-    // Ensure Share Link button exists in DOM; create if missing (older HTML)
-    try {
-      if (!els.btnShareLink) {
-        const controls = document.querySelector('.controls');
-        if (controls) {
-          const btn = document.createElement('button');
-          btn.id = 'btnShareLink';
-          btn.className = 'btn btn-secondary';
-          btn.title = '共有用リンクをコピー';
-          btn.textContent = '共有リンク';
-          // insert after Export button if present, else append
-          const exportBtn = document.getElementById('btnExport');
-          if (exportBtn && exportBtn.nextSibling) {
-            controls.insertBefore(btn, exportBtn.nextSibling);
-          } else {
-            controls.appendChild(btn);
-          }
-          els.btnShareLink = btn;
-        }
-      }
-    } catch {}
-
-    // Create "はじめる！" button dynamically if not present
-    try {
-      if (!els.btnStart) {
-        const content = document.querySelector('section.content');
-        if (content) {
-          const panel = document.createElement('div');
-          panel.className = 'start-panel';
-          panel.style.cssText = 'margin:8px 0 12px 0;padding:10px;border:1px solid #263045;border-radius:8px;background:#0b1020;display:flex;align-items:center;gap:10px;';
-          const btn = document.createElement('button');
-          btn.id = 'btnStart';
-          btn.className = 'btn';
-          btn.textContent = 'はじめる！';
-          btn.style.minWidth = '120px';
-          const note = document.createElement('div');
-          note.style.cssText = 'color:#c7d2e3;font-size:12px;';
-          note.innerHTML = "クリックすると <code>mokekelist_latest.txt</code> を読み込みます。";
-          panel.append(btn, note);
-          // insert at top of content
-          content.insertBefore(panel, content.firstChild);
-          els.btnStart = btn;
-        }
-      }
-    } catch {}
-    if (els.btnLoadList && els.loadList) {
-      addDebugLog('ファイル読み込みボタンのイベントリスナーを設定');
-      els.btnLoadList.addEventListener('click', () => {
-        addDebugLog('ファイル読み込みボタンがクリックされました');
-        setStatus('ボタンクリックを検知');
-        try {
-          els.loadList.click();
-          addDebugLog('ファイル選択ダイアログを開きました');
-          setStatus('ファイル選択ダイアログを開きました');
-        } catch (e) {
-          addDebugLog('ファイル選択ダイアログの開きに失敗: ' + e.message);
-          // Fallback: 入力自体を見せる
-          els.loadList.hidden = false;
-          els.loadList.style.display = 'inline-block';
-          setStatus('ダイアログを開けないため入力欄を表示しました');
-        }
-      });
-    } else {
-      addDebugLog('ファイル読み込みボタンまたはファイル入力が見つかりません');
-    }
-
-    // 貼り付け読み込み機能
-    if (els.btnPasteLoad && els.pasteText) {
-      addDebugLog('貼り付けボタンのイベントリスナーを設定');
-      els.btnPasteLoad.addEventListener('click', () => {
-        addDebugLog('貼り付けボタンがクリックされました');
-        const text = els.pasteText.value.trim();
-        addDebugLog(`貼り付け内容: ${text.length} 文字`);
-        addDebugLog(`貼り付け内容の先頭50文字: ${text.substring(0, 50)}`);
-        if (!text) {
-          setStatus('貼り付け内容が空です');
-          return;
-        }
-        setStatus('貼り付け内容を読み込み中...');
-        setupListWithOptions(text, { overwriteProgress: true });
-        if (!data.items.length) {
-          setStatus('0 件を読み込みました (未認識)');
-        } else {
-          setStatus(`${data.items.length} 件を読み込みました`);
-        }
-      });
-    } else {
-      addDebugLog('貼り付けボタンまたはテキストエリアが見つかりません');
-    }
-
-    // デバッグログクリア
-    if (els.btnClearDebug) {
-      els.btnClearDebug.addEventListener('click', () => {
-        if (els.debugLog) els.debugLog.textContent = '';
-        setStatus('デバッグログをクリアしました');
-      });
-    }
-
-    // テスト用ボタン
-    if (els.btnTest) {
-      addDebugLog('テストボタンのイベントリスナーを設定');
-      els.btnTest.addEventListener('click', () => {
-        addDebugLog('テストボタンがクリックされました！');
-        alert('テストボタンが正常に動作しています！\n\nデバッグ情報を確認してください。');
-        
-        // サンプルデータでテスト
-        const sampleText = `# テストデータ
-[テストカテゴリ]
-アイテム1
-アイテム2
-アイテム3`;
-        
-        addDebugLog('サンプルデータでテスト実行');
-        setupListWithOptions(sampleText, { overwriteProgress: true });
-        setStatus('テストデータで読み込み完了');
-      });
-    } else {
-      addDebugLog('テストボタンが見つかりません');
-    }
-    if (els.dropZone && els.loadList) {
-      const dz = els.dropZone;
-      dz.addEventListener('click', () => { 
-        addDebugLog('ドロップゾーンがクリックされました');
-        try { 
-          els.loadList.click(); 
-          addDebugLog('ファイル選択ダイアログを開きました');
-        } catch (e) {
-          addDebugLog('ファイル選択ダイアログの開きに失敗: ' + e.message);
-        }
-      });
-      
-      const on = (ev) => { 
-        ev.preventDefault(); 
-        ev.stopPropagation(); 
-        dz.classList.add('drop-hover');
-        addDebugLog('ドラッグイベント: ' + ev.type);
-      };
-      const off = (ev) => { 
-        ev.preventDefault(); 
-        ev.stopPropagation(); 
-        dz.classList.remove('drop-hover');
-        addDebugLog('ドラッグイベント終了: ' + ev.type);
-      };
-      
-      ['dragenter','dragover'].forEach(t => dz.addEventListener(t, on));
-      ;['dragleave','drop'].forEach(t => dz.addEventListener(t, off));
-      
-      dz.addEventListener('drop', async (ev) => {
-        addDebugLog('ドロップイベント発生');
-        const file = ev.dataTransfer?.files?.[0];
-        if (file) {
-          addDebugLog(`ファイルがドロップされました: ${file.name} (${file.size} bytes)`);
-          await handleListFile(file);
-        } else {
-          addDebugLog('ドロップされたファイルがありません');
-        }
-      });
-    }
-
-    // Global drag & drop prevention to stop browser from navigating to the file
-    document.addEventListener('dragover', (e) => { 
-      e.preventDefault(); 
-      addDebugLog('グローバル dragover イベント');
-    }, false);
-    document.addEventListener('drop', async (e) => {
-      // Only handle when dropping files on the document (outside the dropZone)
-      addDebugLog('グローバル drop イベント発生');
-      const f = e.dataTransfer?.files?.[0];
-      if (f) {
-        e.preventDefault();
-        addDebugLog(`グローバルドロップでファイルを検出: ${f.name}`);
-        await handleListFile(f);
-      } else {
-        addDebugLog('グローバルドロップでファイルが検出されませんでした');
-      }
-    }, false);
-    els.search.addEventListener('input', () => renderItems());
-    els.statusFilter.addEventListener('change', () => renderItems());
-    els.clearFilter.addEventListener('click', () => { selectedCategory = null; sync(); });
-    els.btnExport.addEventListener('click', () => {
-      const payload = { key: storageKey, listHash: storageKey.split(':').pop(), collected: [...progress] };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'mokeke-progress.json';
-      a.click();
-      URL.revokeObjectURL(a.href);
-    });
-    if (els.btnReset) {
-      els.btnReset.addEventListener('click', () => {
-        if (!confirm('データ初期化: すべて未取得に戻します。よろしいですか？')) return;
-        progress = new Set();
-        saveProgress();
-        sync();
-        setStatus('データを初期化しました');
-      });
-    }
-    if (els.btnShareLink) {
-    els.btnShareLink.addEventListener('click', async () => {
-      try {
-          const state = { list: lastListName || 'mokekelist_latest.txt', hash: storageKey.split(':').pop(), collected: [...progress] };
-          const json = JSON.stringify(state);
-          const b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-          const url = `${location.origin}${location.pathname}#s=${b64}`;
-          await navigator.clipboard.writeText(url);
-          setStatus('共有リンクをクリップボードにコピーしました');
-        } catch (e) {
-          setStatus('共有リンクの作成に失敗しました');
-        }
-      });
-    }
-    els.importState.addEventListener('change', async () => {
-      const f = els.importState.files?.[0];
-      if (!f) return;
-      try {
-        const text = await f.text();
-        const obj = JSON.parse(text);
-        if (obj && Array.isArray(obj.collected)) {
-          const valid = new Set(data.items.map(i => i.id));
-          for (const id of obj.collected) if (valid.has(id)) progress.add(id);
-          saveProgress();
-          sync();
-          alert('\u9032\u6357\u3092\u30a4\u30f3\u30dd\u30fc\u30c8\u3057\u307e\u3057\u305f');
-        } else {
-          alert('JSON \u5f62\u5f0f\u304c\u4e0d\u6b63\u3067\u3059\u3002\u30a8\u30af\u30b9\u30dd\u30fc\u30c8\u3057\u305fJSON\u3092\u9078\u629e\u3057\u3066\u304f\u3060\u3055\u3044\u3002');
-        }
-      } catch (e) {
-        alert('\u9032\u6357\u30c7\u30fc\u30bf(JSON)\u306e\u8aad\u307f\u8fbc\u307f\u306b\u5931\u6557\u3057\u307e\u3057\u305f\u3002');
-      } finally {
-        els.importState.value = '';
-      }
-    });
-    if (els.btnLoadFromPicker && els.loadList) {
-      els.btnLoadFromPicker.addEventListener('click', async () => {
-        const f = els.loadList.files?.[0];
-        if (!f) { setStatus('ファイルを選択してください'); return; }
-        showLoading('リストを読み込み中…');
-        await handleListFile(f);
-        hideLoading();
-      });
-    }
-    els.loadList.addEventListener('change', async () => {
-      addDebugLog('ファイル選択が変更されました');
-      const f = els.loadList.files?.[0];
-      if (!f) {
-        addDebugLog('選択されたファイルがありません');
-        return;
-      }
-      addDebugLog(`選択されたファイル: ${f.name} (${f.size} bytes)`);
-      try { lastListName = f.name || lastListName; } catch {}
-      await handleListFile(f);
-    });
-
-    // Fallback: capture file input change at document level as保険
-    document.addEventListener('change', async (ev) => {
-      try {
-        const t = ev.target;
-        if (t && t.id === 'loadList' && t.files && t.files[0]) {
-          addDebugLog('[fallback] document change: file selected');
-          await handleListFile(t.files[0]);
-        }
-      } catch {}
-    }, true);
-
-    // 画像表示のイベントリスナー
-    if (els.closeImageViewer) {
-      els.closeImageViewer.addEventListener('click', hideImage);
-    }
-    
-    // 画像表示エリア外をクリックしたら閉じる
-    if (els.imageViewer) {
-      els.imageViewer.addEventListener('click', (e) => {
-        if (e.target === els.imageViewer) {
-          hideImage();
-        }
-      });
-    }
-  }
-
-  async function handleListFile(f) {
-    setStatus(`選択: ${f.name} (${f.size}B)`);
-    showLoading('リストを読み込み中…');
-    try {
-      const buf = await f.arrayBuffer();
-      const text = decodeBest(buf);
-      setupListWithOptions(text, { overwriteProgress: true });
-      if (!data.items.length) {
-        alert('\u30ea\u30b9\u30c8\u5185\u5bb9\u3092\u8a8d\u8b58\u3067\u304d\u307e\u305b\u3093\u3067\u3057\u305f\u3002TSV\u307e\u305f\u306f\u30bb\u30af\u30b7\u30e7\u30f3\u5f62\u5f0f\u3067\u8a18\u8ff0\u3057\u3066\u304f\u3060\u3055\u3044\u3002');
-        setStatus('0 件を読み込みました (未認識)');
-      } else {
-        setStatus(`${data.items.length} 件を読み込みました`);
-      }
-    } catch (e) {
-      alert('\u30ea\u30b9\u30c8\u30d5\u30a1\u30a4\u30eb\u306e\u8aad\u307f\u8fbc\u307f\u306b\u5931\u6557\u3057\u307e\u3057\u305f');
-      setStatus('読み込みに失敗しました');
-    } finally {
-      els.loadList.value = '';
-      hideLoading();
-    }
-  }
+    localStorage.setItem(storageKey, JSON.stringify([...progress]);
 
   function setupWithText(text) {
-    showLoading('リストを解析中…');
+    showLoading('繝ｪ繧�E�繝医�E�隗�E�譫蝉ｸ�E�窶�E�');
     rawText = text || '';
     const hash = djb2(rawText);
     storageKey = `mokeke:v1:${hash}`;
     progress = new Set();
-    usedImages.clear(); // 使用済み画像セットをリセット
+    usedImages.clear(); // 菴�E�逕ｨ貂医∩逕ｻ蜒上そ繝�Eヨ繧偵Μ繧�E�繝�Eヨ
     loadProgress();
     loadOverrides();
     data = parseAuto(rawText);
     
-    // 入手日があるアイテムを自動でチェック済みにする
+    // 蜈･謁E��律縺後≠繧九い繧�E�繝�EΒ繧定�E蜍輔〒繝�Eぉ繝�Eけ貂医∩縺�E�縺吶�E�E
     let autoCheckedCount = 0;
     for (const item of data.items) {
       if (item.isAcquired && !progress.has(item.id)) {
@@ -840,7 +85,7 @@
     }
     
     if (autoCheckedCount > 0) {
-      addDebugLog(`${autoCheckedCount} 件のアイテムを入手日により自動チェックしました`);
+      addDebugLog(`${autoCheckedCount} 莉ｶ縺�E�繧�E�繧�E�繝�EΒ繧貞�E謁E��律縺�E�繧医�E�閾�E�蜍輔メ繧�E�繝�Eけ縺励∪縺励◁E);
       saveProgress();
     }
     
@@ -850,7 +95,7 @@
 
   // New: list setup with overwrite option (use file ownership as source of truth when requested)
   function setupListWithOptions(text, opts = {}) {
-    showLoading('リストを解析中…');
+    showLoading('繝ｪ繧�E�繝医�E�隗�E�譫蝉ｸ�E�窶�E�');
     rawText = text || '';
     const hash = djb2(rawText);
     storageKey = 'mokeke:v1:' + hash;
@@ -896,34 +141,32 @@
     const majorCategories = new Set();
     const minorCategories = new Set();
     const lines = text.split(/\r?\n/);
-    let isFirstLine = true; // ヘッダー行をスキップするためのフラグ
+    let isFirstLine = true; // 繝倥ャ繝繝ｼ陦後ｒ繧�E�繧�E�繝�E・縺吶�E�縺溘ａ縺�E�繝輔Λ繧�E�
     
     for (const raw of lines) {
       if (!raw) continue;
       if (raw.trim().startsWith('#')) continue;
       
-      // 最初の行（ヘッダー行）をスキップ
+      // 譛蛻昴・陦鯉ｼ医・繝�Eム繝ｼ陦鯉ｼ峨�E�繧�E�繧�E�繝�E・
       if (isFirstLine) {
         isFirstLine = false;
         continue;
       }
       
       const cols = raw.split('\t');
-      if (cols.length < 7) continue; // 新しい構造では7列必要
+      if (cols.length < 7) continue; // 譁E��縺励�E�讒矩�E�縺�E�縺�E�7蛻怜ｿ・�E�・
 
       for (let i = 0; i < cols.length; i++) cols[i] = cols[i].trim();
-      // keep trailing empty fields to preserve column count (e.g., 入手日が空でも8列を維持)
+      // keep trailing empty fields to preserve column count (e.g., 蜈･謁E��律縺檎ｩ�E�縺�E�繧・蛻励�E�邯�E�謖�E
       // while (cols.length && cols[cols.length-1] === '') cols.pop();
       if (!cols.length) continue;
 
-      // 新しい構造の列を取得
-      const majorCategory = cols[0]; // 大分類番号
-      const minorCategory = cols[1]; // 中分類名
-      const prefectureNo = cols[2];  // 県NO
-      const region = cols[3];        // 地域
-      const color = cols[4];         // カラー区分
-      // 並び順列がある新フォーマットに対応（列数>=8）
-      let order = 0, name = '', acquiredDate = '';
+      // 譁E��縺励�E�讒矩�E�縺�E�蛻励�E�蜿門�E�・
+      const majorCategory = cols[0]; // 螟ｧ蛻・�E�樒�E蜿�E�
+      const minorCategory = cols[1]; // 荳�E�蛻・�E�槫錁E
+      const prefectureNo = cols[2];  // 逵君O
+      const region = cols[3];        // 蝨�E�蝓�E
+      const color = cols[4];         // 繧�E�繝ｩ繝ｼ蛹�E�蛻・      // 荳�E�縺�E�鬁E�E・縺後≠繧区眠繝輔か繝ｼ繝槭ャ繝医↓蟇�E�蠢懶�E�亥・謨�E�>=8・・      let order = 0, name = '', acquiredDate = '';
       if (cols.length >= 8) {
         order = parseInt(cols[5], 10); if (!Number.isFinite(order)) order = 0;
         name = cols[6];
@@ -933,15 +176,15 @@
         acquiredDate = cols[6];
       }
 
-      // カテゴリを構築
+      // 繧�E�繝�Eざ繝ｪ繧呈ｧ狗ｯ・
       majorCategories.add(majorCategory);
       minorCategories.add(minorCategory);
 
-      // 表示形式: 地域 名前 カラー区分
+      // 陦�E�遉ｺ蠖｢蠑�E 蝨�E�蝓�E蜷榊�� 繧�E�繝ｩ繝ｼ蛹�E�蛻・
       let displayName = '';
       if (region) displayName += region;
       if (name) displayName += (displayName ? ' ' : '') + name;
-      if (color && color.length <= 10 && !/[第弾]/.test(color)) {
+      if (color && color.length <= 10 && !/[隨�E�蠑ｾ]/.test(color)) {
         displayName += (displayName ? ' ' : '') + color;
       }
       
@@ -950,61 +193,61 @@
       const idSeed = (cols[0] || '') + '::' + majorCategory + '::' + minorCategory + '::' + name + '::' + order;
       const id = djb2(idSeed);
       
-      // 対応する画像を検索
+      // 蟁E��蠢懊�E繧狗判蜒上ｒ讀懁E���E�
        const matchingImage = smartFindImage(displayName, region, color, prefectureNo, order);
       
       items.push({ 
         id, 
-        name: displayName, // 表示用の名前
-        originalName: name, // 元の名前
-        region: region, // 地域
-        color: color, // カラー区分
-        majorCategory: majorCategory, // 大分類
-        minorCategory: minorCategory, // 中分類
-        category: `${majorCategory} > ${minorCategory}`, // 階層表示用
+        name: displayName, // 陦�E�遉ｺ逕ｨ縺�E�蜷榊��
+        originalName: name, // 蜈�E・蜷榊��
+        region: region, // 蝨�E�蝓�E
+        color: color, // 繧�E�繝ｩ繝ｼ蛹�E�蛻・
+        majorCategory: majorCategory, // 螟ｧ蛻・�E�・
+        minorCategory: minorCategory, // 荳�E�蛻・�E�・
+        category: `${majorCategory} > ${minorCategory}`, // 髫主�E��E�陦�E�遉ｺ逕ｨ
         prefectureNo: prefectureNo,
         order: order,
         acquiredDate: acquiredDate,
-        isAcquired: !!acquiredDate && acquiredDate.trim() !== '', // 入手日がある場合は取得済み
-        image: matchingImage // 対応する画像情報
+        isAcquired: !!acquiredDate && acquiredDate.trim() !== '', // 蜈･謁E��律縺後≠繧句�E��E�蜷医・蜿門�E�玲�E�医∩
+        image: matchingImage // 蟁E��蠢懊�E繧狗判蜒乗ュ蝣�E�
       });
     }
     
     return { 
       majorCategories: Array.from(majorCategories).sort(),
       minorCategories: Array.from(minorCategories).sort(),
-      categories: Array.from(majorCategories).sort(), // 後方互換性のため
+      categories: Array.from(majorCategories).sort(), // 蠕梧婿莠呈鋤諤�E�縺�E�縺溘ａE
       items 
     };
   }
 
-  // 画像データを読み込む（簡略化版）
+  // 逕ｻ蜒上ョ繝ｼ繧�E�繧定ｪ�E�縺�E�霎ｼ繧・育�E��E�逡�E�蛹也沿・・
   async function loadImageData() {
-    addDebugLog('画像データの読み込み開始（簡略化版）');
+    addDebugLog('逕ｻ蜒上ョ繝ｼ繧�E�縺�E�隱�E�縺�E�霎ｼ縺�E�髢句�E�具�E�育�E��E�逡�E�蛹也沿・・);
     
-    // 実際の画像ファイルは直接読み込まず、ファイル名から推測する方式に変更
+    // 螳滁E��縺�E�逕ｻ蜒上ヵ繧�E�繧�E�繝ｫ縺�E�逶�E�謗･隱�E�縺�E�霎ｼ縺�E�縺壹√ヵ繧�E�繧�E�繝ｫ蜷阪°繧画耳貂ｬ縺吶�E�譁E��蠑上�E螟画峩
     imageData = { regions: [], images: [] };
     
-    addDebugLog('画像データ読み込み完了（簡略化版）');
+    addDebugLog('逕ｻ蜒上ョ繝ｼ繧�E�隱�E�縺�E�霎ｼ縺�E�螳御�E�・�E�育�E��E�逡�E�蛹也沿・・);
     return imageData;
   }
   
-  // 画像ファイル名を解析
+  // 逕ｻ蜒上ヵ繧�E�繧�E�繝ｫ蜷阪�E�隗�E�譫・
   function parseImageFilename(filename, regionName) {
-    // 例: 01_北海道_01_北海道_01_牛.jpg
+    // 萓�E 01_蛹玲�E��E�驕点01_蛹玲�E��E�驕点01_迚�Ejpg
     const parts = filename.replace('.jpg', '').split('_');
     if (parts.length < 6) return null;
     
     const prefectureNo = parts[0];
     const prefecture = parts[1];
     const subRegion = parts[3];
-    // アイテム名は5番目以降を結合（カラー情報も含む）
+    // 繧�E�繧�E�繝�EΒ蜷阪・5逡�E�逶�E�莉･髯阪�E�邨仙粋�E医き繝ｩ繝ｼ諠・�E��E�繧めE��繧・・
     const itemName = parts.slice(5).join('_');
-    const color = ''; // カラー情報は別途解析
+    const color = ''; // 繧�E�繝ｩ繝ｼ諠・�E��E�縺�E�蛻�E�騾碑ｧ�E�譫・
     
-    // デバッグログを表示（最初の5枚のみ）
+    // 繝�Eヰ繝�Eげ繝ｭ繧�E�繧定｡�E�遉ｺ・域怙蛻昴・5譫壹・縺�E�・・
     if (imageData.images.length < 5) {
-      addDebugLog(`画像解析: ${filename} -> 地域:${prefecture}, アイテム:${itemName}`);
+      addDebugLog(`逕ｻ蜒剰�E��E�譫・ ${filename} -> 蝨�E�蝓�E${prefecture}, 繧�E�繧�E�繝�E΁E${itemName}`);
     }
     
     return {
@@ -1019,71 +262,71 @@
     };
   }
   
-  // 地域名からフォルダ名を取得
+  // 蝨�E�蝓溷錐縺九ｉ繝輔か繝ｫ繝蜷阪�E�蜿門�E�・
   function getRegionFolder(regionName) {
     const folderMap = {
-      '北海道': '01hokkaido',
-      '東北': '02tohoku',
-      '関東': '03kanto',
-      '中部': '04chubu',
-      '近畿': '05kinki',
-      '中国': '06chugoku',
-      '四国': '07shikoku',
-      '九州': '08kyushu',
-      '沖縄': '09okinawa',
-      'スポーツ': '10sports',
-      '水族館': '11suizokukan',
-      '季節': '12kisetsu'
+      '蛹玲�E��E�驕�E: '01hokkaido',
+      '譚ｱ蛹・: '02tohoku',
+      '髢�E�譚ｱ': '03kanto',
+      '荳�E�驛ｨ': '04chubu',
+      '霑�E柁E: '05kinki',
+      '荳�E�蝗ｽ': '06chugoku',
+      '蝗帛嵁E: '07shikoku',
+      '荵晏ｷ・: '08kyushu',
+      '豐也ｸ・: '09okinawa',
+      '繧�E�繝昴・繝�E: '10sports',
+      '豌ｴ譌城�E��E�': '11suizokukan',
+      '蟁E��遽': '12kisetsu'
     };
     return folderMap[regionName] || '';
   }
   
-  // 使用済み画像を追跡するセット
+  // 菴�E�逕ｨ貂医∩逕ｻ蜒上ｒ霑�E�霍｡縺吶�E�繧�E�繝�Eヨ
   const usedImages = new Set();
   
-  // アイテムに対応する画像を検索
+  // 繧�E�繧�E�繝�EΒ縺�E�蟁E��蠢懊�E繧狗判蜒上ｒ讀懁E���E�
   function findMatchingImage(displayName, region, color, prefectureNo) {
     if (!imageData.images.length) {
       return null;
     }
     
-    // 表示名から地域とアイテム名を分離
+    // 陦�E�遉ｺ蜷阪°繧牙�E蝓溘�E繧�E�繧�E�繝�EΒ蜷阪�E�蛻・屬
     const displayParts = displayName.split(' ');
-    const itemRegion = displayParts[0]; // 最初の部分が地域
-    const itemName = displayParts.slice(1).join(' '); // 残りがアイテム名
+    const itemRegion = displayParts[0]; // 譛蛻昴・驛ｨ蛻・′蝨�E�蝓�E
+    const itemName = displayParts.slice(1).join(' '); // 谿九ｊ縺後い繧�E�繝�EΒ蜷・
     
-    // 地域名で絞り込み（より柔軟なマッチング）
+    // 蝨�E�蝓溷錐縺�E�邨槭�E�霎�E�縺�E�・医�E�繧頑沐霆溘�E繝槭ャ繝�EΦ繧�E�・・
     const regionImages = imageData.images.filter(img => {
-      // 使用済みの画像は除外
+      // 菴�E�逕ｨ貂医∩縺�E�逕ｻ蜒上�E髯�E�螟�E
       if (usedImages.has(img.filename)) return false;
       
-      // 完全一致
+      // 螳悟�E荳閾�E�
       if (img.prefecture === itemRegion || img.subRegion === itemRegion) return true;
-      // 部分一致
+      // 驛ｨ蛻・�E�閾�E�
       if (img.prefecture && img.prefecture.includes(itemRegion)) return true;
       if (img.subRegion && img.subRegion.includes(itemRegion)) return true;
-      // 逆の部分一致（itemRegionが画像の地域名に含まれる）
+      // 騾・・驛ｨ蛻・�E�閾�E�・・temRegion縺檎判蜒上�E蝨�E�蝓溷錐縺�E�蜷�E�縺�E�繧後ｋ�E・
       if (img.prefecture && itemRegion.includes(img.prefecture)) return true;
       if (img.subRegion && itemRegion.includes(img.subRegion)) return true;
       return false;
     });
     
-    // 地域マッチした画像数をログに記録（簡潔に）
+    // 蝨�E�蝓溘�E繝�Eメ縺励◁E��ｻ蜒乗�E繧偵Ο繧�E�縺�E�險倬鹸・育�E��E�貎斐↓�E・
     if (regionImages.length === 0) {
-      addDebugLog(`❌ 地域マッチなし: "${displayName}" (地域: ${itemRegion})`);
+      addDebugLog(`笶・蝨�E�蝓溘�E繝�Eメ縺�E�縺・ "${displayName}" (蝨�E�蝓�E ${itemRegion})`);
     }
     
     if (!regionImages.length) {
-      // 地域で見つからない場合は、全画像からアイテム名で検索（使用済み除外）
+      // 蝨�E�蝓溘〒隕九▽縺九ｉ縺�E�縺・�E��E�蜷医・縲∝�E逕ｻ蜒上°繧峨ぁE���E�繝�EΒ蜷阪〒讀懁E���E�・井ｽ�E�逕ｨ貂医∩髯�E�螟厄�E�・
       const allNameMatch = imageData.images.find(img => {
         if (usedImages.has(img.filename)) return false;
         
         const imgName = img.itemName.toLowerCase();
         const searchName = itemName.toLowerCase();
         
-        // 完全一致
+        // 螳悟�E荳閾�E�
         if (imgName === searchName) return true;
-        // 部分一致
+        // 驛ｨ蛻・�E�閾�E�
         if (imgName.includes(searchName)) return true;
         if (searchName.includes(imgName)) return true;
         
@@ -1092,34 +335,34 @@
       
       if (allNameMatch) {
         usedImages.add(allNameMatch.filename);
-        addDebugLog(`✅ 全画像から名前マッチ: "${displayName}" -> ${allNameMatch.filename}`);
+        addDebugLog(`笨・蜈ｨ逕ｻ蜒上°繧牙錐蜑阪・繝�Eメ: "${displayName}" -> ${allNameMatch.filename}`);
         return allNameMatch;
       }
       
-      addDebugLog(`❌ 全画像からもマッチなし: "${displayName}"`);
+      addDebugLog(`笶・蜈ｨ逕ｻ蜒上°繧峨�E�繝槭ャ繝�E↑縺・ "${displayName}"`);
       return null;
     }
     
-    // アイテム名でマッチング（より柔軟に）
+    // 繧�E�繧�E�繝�EΒ蜷阪〒繝槭ャ繝�EΦ繧�E�・医�E�繧頑沐霆溘�E・・
     const nameMatch = regionImages.find(img => {
       const imgName = img.itemName.toLowerCase();
       const searchName = itemName.toLowerCase();
       
-      // 完全一致
+      // 螳悟�E荳閾�E�
       if (imgName === searchName) return true;
       
-      // 部分一致（アイテム名が画像名に含まれる）
+      // 驛ｨ蛻・�E�閾�E�・医ぁE���E�繝�EΒ蜷阪′逕ｻ蜒丞錐縺�E�蜷�E�縺�E�繧後ｋ�E・
       if (imgName.includes(searchName)) return true;
       
-      // 逆の部分一致（画像名がアイテム名に含まれる）
+      // 騾・・驛ｨ蛻・�E�閾�E�・育判蜒丞錐縺後い繧�E�繝�EΒ蜷阪↓蜷�E�縺�E�繧後ｋ�E・
       if (searchName.includes(imgName)) return true;
       
-      // 単語レベルでのマッチング
+      // 蜊倩�E�槭Ξ繝吶Ν縺�E�縺�E�繝槭ャ繝�EΦ繧�E�
       const imgWords = imgName.split('_');
       const searchWords = searchName.split(' ');
       
       for (const searchWord of searchWords) {
-        if (searchWord.length > 1) { // 1文字の単語は除外
+        if (searchWord.length > 1) { // 1譁�E�E�励・蜊倩�E�槭・髯�E�螟�E
           for (const imgWord of imgWords) {
             if (imgWord.includes(searchWord) || searchWord.includes(imgWord)) {
               return true;
@@ -1133,33 +376,33 @@
     
     if (nameMatch) {
       usedImages.add(nameMatch.filename);
-      addDebugLog(`✅ 地域+名前マッチ: "${displayName}" -> ${nameMatch.filename}`);
+      addDebugLog(`笨・蝨�E�蝓�E蜷榊��繝槭ャ繝�E "${displayName}" -> ${nameMatch.filename}`);
       return nameMatch;
     } else {
-      addDebugLog(`❌ 地域+名前マッチ失敗: "${displayName}" (地域: ${itemRegion}, アイテム: ${itemName})`);
+      addDebugLog(`笶・蝨�E�蝓�E蜷榊��繝槭ャ繝�E�E��E�謨・ "${displayName}" (蝨�E�蝓�E ${itemRegion}, 繧�E�繧�E�繝�E΁E ${itemName})`);
     }
     
-    // カラーでマッチング
+    // 繧�E�繝ｩ繝ｼ縺�E�繝槭ャ繝�EΦ繧�E�
     if (color) {
       const colorMatch = regionImages.find(img => 
         img.color && img.color.toLowerCase().includes(color.toLowerCase())
       );
       if (colorMatch) {
         usedImages.add(colorMatch.filename);
-        addDebugLog(`✅ カラーマッチ: "${displayName}" -> ${colorMatch.filename}`);
+        addDebugLog(`笨・繧�E�繝ｩ繝ｼ繝槭ャ繝�E "${displayName}" -> ${colorMatch.filename}`);
         return colorMatch;
       }
     }
     
-    // 最初の未使用画像を返す（フォールバック）
+    // 譛蛻昴・譛ｪ菴�E�逕ｨ逕ｻ蜒上ｒ霑斐�E・医ヵ繧�E�繝ｼ繝ｫ繝�Eャ繧�E�・・
     if (regionImages.length > 0) {
       const fallbackImage = regionImages[0];
       usedImages.add(fallbackImage.filename);
-      addDebugLog(`⚠️ フォールバック: "${displayName}" -> ${fallbackImage.filename}`);
+      addDebugLog(`笞・・繝輔か繝ｼ繝ｫ繝�Eャ繧�E�: "${displayName}" -> ${fallbackImage.filename}`);
       return fallbackImage;
     }
     
-    addDebugLog(`❌ 最終的にマッチなし: "${displayName}"`);
+    addDebugLog(`笶・譛邨ら噪縺�E�繝槭ャ繝�E↑縺・ "${displayName}"`);
     return null;
   }
 
@@ -1173,345 +416,11 @@
     } catch {}
     if (!imageData || !Array.isArray(imageData.images) || !imageData.images.length) return null;
 
-    const normalize = (s) => (s || '').toString().trim().replace(/\s+/g, '').replace(/モケケ$/,'');
+    const normalize = (s) => (s || '').toString().trim().replace(/\s+/g, '').replace(/繝｢繧�E�繧�E�$/,'');
     const parts = (displayName || '').split(' ');
     const regionCand = normalize(parts[0] || region || '');
     const itemName = (parts.slice(1).join(' ') || '').toLowerCase();
-    const regionCandidates = Array.from(new Set([regionCand, normalize(region || '')].filter(Boolean)));
-
-    // Try region-based filter including regionName/prefecture/subRegion
-    let regionImages = imageData.images.filter(img => {
-      if (usedImages.has(img.filename)) return false;
-      const fields = [img.regionName, img.prefecture, img.subRegion].map(normalize);
-      return regionCandidates.some(rc => rc && fields.some(f => f && (f === rc || f.includes(rc) || rc.includes(f))));
-    });
-
-    // Name match within region
-    const tryNameMatch = (pool) => {
-      return pool.find(img => {
-        const imgName = (img.itemName || '').toLowerCase();
-        if (!itemName) return false;
-        if (imgName === itemName) return true;
-        if (imgName.includes(itemName)) return true;
-        if (itemName.includes(imgName)) return true;
-        const imgWords = imgName.split('_');
-        const searchWords = itemName.split(' ');
-        for (const sw of searchWords) {
-          if (sw.length > 1) {
-            for (const iw of imgWords) {
-              if (iw.includes(sw) || sw.includes(iw)) return true;
-            }
-          }
-        }
-        return false;
-      }) || null;
-    };
-
-    if (order && regionImages.length) {
-      const pat = '_' + String(order) + '_';
-      regionImages = regionImages.slice().sort((x,y)=> {
-        const ya = ((y.filename||'').includes(pat)?1:0);
-        const xa = ((x.filename||'').includes(pat)?1:0);
-        return ya - xa;
-      });
-    }
-    let m = tryNameMatch(regionImages);
-    if (m) { usedImages.add(m.filename); return m; }
-
-    // Global name match
-    m = tryNameMatch(imageData.images.filter(img => !usedImages.has(img.filename)));
-    if (m) { usedImages.add(m.filename); return m; }
-
-    // Fallback: pick first from region pool
-    if (regionImages.length) { const fb = regionImages[0]; usedImages.add(fb.filename); return fb; }
-    return null;
-  }
-
-  // 画像表示機能
-  function showImage(item) {
-    addDebugLog(`画像表示開始: ${item.name} (${item.category})`);
-    const imagePath = findImageForItem(item);
-    addDebugLog(`生成された画像パス: ${imagePath}`);
-    
-    if (imagePath) {
-      els.imageTitle.textContent = item.name;
-      els.mainImage.src = imagePath;
-      els.mainImage.alt = item.name;
-      els.imageInfo.textContent = `${item.category} - ${item.name} (${item.color || '色不明'})`;
-      els.imageViewer.style.display = 'flex';
-      
-      // 画像の読み込み成功/失敗を監視
-      els.mainImage.onload = () => {
-        addDebugLog(`画像読み込み成功: ${imagePath}`);
-      };
-      els.mainImage.onerror = () => {
-        addDebugLog(`画像読み込み失敗: ${imagePath}`);
-      };
-    } else {
-      addDebugLog(`画像が見つかりません: ${item.name}`);
-    }
-  }
-
-  function hideImage() {
-    els.imageViewer.style.display = 'none';
-  }
-  function findImageForItem(item) {
-    try {
-      if (item && item.image && item.image.path) return item.image.path;
-      if (imageOverrides && imageOverrides[item.id]) return imageOverrides[item.id];
-      if (typeof findMatchingImage === 'function' && imageData && imageData.images && imageData.images.length) {
-        const m = smartFindImage(item.name || item.originalName || '', item.region || '', item.color || '', item.prefectureNo || '', item.order || 0);
-        if (m && m.path) return m.path;
-      }
-    } catch {}
-    let region, subRegion;if (item.category.includes('季節')) {
-      // 季節モケケの場合: "12_季節 モケケ > 01_春" -> region="季節", subRegion="春"
-      const parts = item.category.split(' > ');
-      if (parts.length > 1) {
-        region = '季節';
-        subRegion = parts[1].replace(/^[0-9]+_/, '').trim();
-      } else {
-        region = '季節';
-        subRegion = '春'; // デフォルト
-      }
-    } else {
-      // 通常の地域モケケの場合: "08_九州 モケケ > 01_福岡"
-      const parts = item.category.split(' > ');
-      if (parts.length > 1) {
-        // "08_九州 モケケ" から "九州" を抽出（スペースを除去）
-        region = parts[0].replace(/モケケ$/, '').replace(/^[0-9]+_/, '').trim();
-        // "01_福岡" から "福岡" を抽出し、番号も保持
-        const subRegionPart = parts[1].trim();
-        const subRegionMatch = subRegionPart.match(/^([0-9]+)_(.+)$/);
-        if (subRegionMatch) {
-          subRegion = subRegionMatch[2];
-          // subRegionの番号を保存
-          item.subRegionNumber = subRegionMatch[1];
-        } else {
-          subRegion = subRegionPart;
-        }
-      } else {
-        // フォールバック
-        region = item.category.replace(/モケケ$/, '').replace(/^[0-9]+_/, '').trim();
-        subRegion = region;
-      }
-    }
-    
-    const name = item.name.replace(/\s+/g, '');
-    const color = item.color || '';
-    
-    addDebugLog(`カテゴリ解析結果: region="${region}", subRegion="${subRegion}"`);
-    if (item.subRegionNumber) {
-      addDebugLog(`subRegionNumber: "${item.subRegionNumber}"`);
-    }
-    
-    // 実際のファイル名パターンに基づいて画像パスを生成
-    const regionCode = getRegionCode(region);
-    const folderName = getRegionFolder(region);
-    
-    addDebugLog(`生成されたコード: regionCode="${regionCode}", folderName="${folderName}"`);
-    
-    // 実際のファイル名パターンに基づいて画像パスを生成
-    const possibleNames = [];
-    
-    if (region === '季節') {
-      // 季節モケケの場合: 12_季節_01_春_01_さくら.jpg
-      // subRegionの番号を取得（季節の場合は特別な処理）
-      let subRegionCode;
-      if (item.subRegionNumber) {
-        // 保存されたsubRegionの番号を使用
-        subRegionCode = `${item.subRegionNumber}_${subRegion}`;
-      } else {
-        // デフォルトの番号を使用
-        subRegionCode = `01_${subRegion}`;
-      }
-      
-      for (let i = 1; i <= 50; i++) {
-        const num = i.toString().padStart(2, '0');
-        possibleNames.push(`${regionCode}_${region}_${subRegionCode}_${subRegion}_${num}_${name}.jpg`);
-        possibleNames.push(`${regionCode}_${region}_${subRegionCode}_${subRegion}_${num}_${name}_${color}.jpg`);
-        possibleNames.push(`${regionCode}_${region}_${subRegionCode}_${subRegion}_${num}_${name}_総柄.jpg`);
-      }
-    } else {
-      // 通常の地域モケケの場合: 08_九州_01_福岡_01_明太子.jpg または 08_九州_07_鹿児島_02_桜島.jpg
-      // subRegionが地域名の場合は、その地域の番号を取得
-      let subRegionCode;
-      if (subRegion === region) {
-        // 同じ地域の場合は、地域コードを使用
-        subRegionCode = regionCode;
-      } else {
-              // 異なる地域の場合は、subRegionの番号を取得
-      if (item.subRegionNumber) {
-        // 保存されたsubRegionの番号を使用
-        subRegionCode = `${item.subRegionNumber}_${subRegion}`;
-      } else {
-        subRegionCode = getRegionCode(subRegion);
-        // もしsubRegionがマッピングにない場合は、地域コードの番号部分を使用
-        if (subRegionCode === '01_北海道' && subRegion !== '北海道') {
-          // 地域コードから番号を抽出（例：08_九州 -> 08）
-          const regionNumber = regionCode.split('_')[0];
-          subRegionCode = `${regionNumber}_${subRegion}`;
-        }
-      }
-      }
-      
-      for (let i = 1; i <= 50; i++) {
-        const num = i.toString().padStart(2, '0');
-        // アイテム名から地域名を除去（重複を避ける）
-        let cleanName = name;
-        if (name.startsWith(subRegion)) {
-          cleanName = name.substring(subRegion.length);
-        }
-        possibleNames.push(`${regionCode}_${subRegionCode}_${num}_${cleanName}.jpg`);
-        possibleNames.push(`${regionCode}_${subRegionCode}_${num}_${cleanName}_${color}.jpg`);
-        possibleNames.push(`${regionCode}_${subRegionCode}_${num}_${cleanName}_総柄.jpg`);
-      }
-    }
-    
-    // 特殊なパターン（N付きなど）
-    if (name.includes('N') || name.includes('ピンク')) {
-      if (region === '季節') {
-        const subRegionCode = getRegionCode(subRegion);
-        for (let i = 1; i <= 50; i++) {
-          const num = i.toString().padStart(2, '0');
-          possibleNames.push(`${regionCode}_${region}_${subRegionCode}_${subRegion}_${num}_${name}.jpg`);
-        }
-      } else {
-        const subRegionCode = getRegionCode(subRegion);
-        for (let i = 1; i <= 50; i++) {
-          const num = i.toString().padStart(2, '0');
-          possibleNames.push(`${regionCode}_${subRegionCode}_${subRegion}_${num}_${name}.jpg`);
-        }
-      }
-    }
-    
-    // 最初の可能性を返す（実際の存在チェックはしない）
-    return `images/${folderName}/${possibleNames[0]}`;
-  }
-function getRegionFolder(region) {
-    // 地域名からフォルダ名を取得
-    const regionMap = {
-      '北海道': '01hokkaido',
-      '東北': '02tohoku',
-      '関東': '03kanto',
-      '中部': '04chubu',
-      '近畿': '05kinki',
-      '中国': '06chugoku',
-      '四国': '07shikoku',
-      '九州': '08kyushu',
-      '沖縄': '09okinawa',
-      'スポーツ': '10sports',
-      '水族館': '11suizokukan',
-      '季節': '12kisetsu'
-    };
-    
-    return regionMap[region] || '01hokkaido';
-  }
-
-  function getImageFileName(region, name, color) {
-    // 画像ファイル名を生成
-    const regionCode = getRegionCode(region);
-    const nameCode = name.replace(/[^\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '');
-    
-    return `${regionCode}_${nameCode}.jpg`;
-  }
-
-  function getRegionCode(region) {
-    const regionCodes = {
-      '北海道': '01_北海道',
-      '東北': '02_東北',
-      '関東': '03_関東',
-      '中部': '04_中部',
-      '近畿': '05_近畿',
-      '中国': '06_中国',
-      '四国': '07_四国',
-      '九州': '08_九州',
-      '沖縄': '09_沖縄',
-      'スポーツ': '10_スポーツ',
-      '水族館': '11_水族館',
-      '季節': '12_季節'
-    };
-    
-    return regionCodes[region] || '01_北海道';
-  }
-
-  async function boot() {
-    addDebugLog('boot: start init');
-    addDebugLog('boot: DOM check');
-    for (const [key, element] of Object.entries(els)) {
-      try { addDebugLog('els.' + key + ': ' + (element ? 'ok' : 'missing')); } catch {}
-    }
-    initEvents();
-    addDebugLog('events: ready');
-
-  // 画像データのプリロード
-loadImageDataCsv().then(async (res) => {
-try {
-const src = (res && res.images) ? res : (window && window.mokekeImageData ? window.mokekeImageData : null);
-if (src && Array.isArray(src.images)) {
-const augmented = src.images.map(img => {
-try {
-const parsed = (typeof parseImageFilename === 'function')
-? parseImageFilename(img.filename, img.regionName || img.area || '')
-: null;
-if (parsed) {
-return {
-...img,
-prefecture: parsed.prefecture,
-subRegion: parsed.subRegion,
-color: img.color || parsed.color
-};
-}
-} catch {}
-return img;
-});
-imageData.images = augmented;
-imageData.regions = [...new Set(augmented.map(it => it.regionName || it.prefecture).filter(Boolean))].sort();
-}
-} catch {}
-sync();
-  });
-
-  // 共有リンクとキャッシュ有無で起動挙動を分岐
-  let shared = null;
-  try {
-    const m = location.hash.match(/#s=([A-Za-z0-9\-_]+)/);
-    if (m) {
-      const json = decodeURIComponent(escape(atob(m[1].replace(/-/g,'+').replace(/_/g,'/'))));
-      shared = JSON.parse(json);
-      addDebugLog('共有リンクの状態を検出');
-    }
-  } catch {}
-  const hasAnyProgress = (() => { try { return Object.keys(localStorage).some(k => k.startsWith('mokeke:v1:')); } catch { return false; } })();
-
-  if (shared) {
-    showLoading('共有リンクの内容を読み込み中…');
-    const txt = await loadFromRelativeFile(shared.list || 'mokekelist_20250906.txt');
-    if (txt) {
-      setupListWithOptions(txt, { overwriteProgress: false });
-      if (shared.collected && Array.isArray(shared.collected)) {
-        const valid = new Set(data.items.map(i => i.id));
-        for (const id of shared.collected) if (valid.has(id)) progress.add(id);
-        saveProgress();
-        sync();
-        setStatus('共有リンクから進捗を適用しました');
-      }
-    }
-    hideLoading();
-  } else if (hasAnyProgress) {
-    showLoading('前回のリストを読み込み中…');
-    let txt = await loadFromRelativeFile('mokekelist_20250906.txt');
-    if (!txt) txt = await loadFromRelativeFile('mokekelist.txt');
-    if (txt) setupListWithOptions(txt, { overwriteProgress: false });
-    hideLoading();
-  } else {
-    showLoading('初期データを読み込み中…');
-    let txt = await loadFromRelativeFile('mokekelist_20250906.txt');
-    if (!txt) txt = await loadFromRelativeFile('mokekelist.txt');
-    if (txt) setupListWithOptions(txt, { overwriteProgress: true, allUnchecked: true });
-    hideLoading();
-  }
-}
+    const regionCandidates = Array.from(new Set([regionCand, normalize(region || '')].filter(Boolean));
 
 async function boot2() {
   addDebugLog('boot2: init');
@@ -1548,39 +457,39 @@ async function boot2() {
   try {
     const hasAnyProgress = Object.keys(localStorage).some(k => k.startsWith('mokeke:v1:'));
     if (!hasAnyProgress) {
-      setStatus('右上の「リスト読込」からファイルを選択してください');
+      setStatus('蜿�E�荳翫・縲後Μ繧�E�繝郁�E��E�霎ｼ縲阪°繧峨ヵ繧�E�繧�E�繝ｫ繧帝�E謚槭�E�縺�E�縺上□縺輔！E);
     }
   } catch {}
 }
 function start() {
-    addDebugLog('start() 関数が呼び出されました');
+    addDebugLog('start() 髢�E�謨�E�縺悟他縺�E�蜁E��縺輔ｌ縺�E�縺励◁E);
     try { 
       boot2(); 
     }
     catch (e) { 
-      const errorMsg = '初期化エラー: ' + e.message;
+      const errorMsg = '蛻晁E��蛹悶お繝ｩ繝ｼ: ' + e.message;
       setStatus(errorMsg);
       addDebugLog(errorMsg);
-      addDebugLog('スタックトレース: ' + e.stack);
+      addDebugLog('繧�E�繧�E�繝�Eけ繝医Ξ繝ｼ繧�E�: ' + e.stack);
       try { console.error(e); } catch {} 
     }
   }
 
-  addDebugLog('スクリプト読み込み完了');
+  addDebugLog('繧�E�繧�E�繝ｪ繝励ヨ隱�E�縺�E�霎ｼ縺�E�螳御�E�・);
   addDebugLog(`document.readyState: ${document.readyState}`);
 
   if (document.readyState === 'loading') {
-    addDebugLog('DOMContentLoaded イベントを待機中');
+    addDebugLog('DOMContentLoaded 繧�E�繝吶Φ繝医�E�蠕�E�E�滉ｸ�E�');
     document.addEventListener('DOMContentLoaded', start);
   } else {
-    addDebugLog('DOM解析済み、即時起動');
-    // DOM 解析済みなら即時起動
+    addDebugLog('DOM隗｣譫先ｸ医∩縲∝叉譎り�E��E�蜍�E);
+    // DOM 隗｣譫先ｸ医∩縺�E�繧牙叉譎り�E��E�蜍�E
     start();
   }
 
   // New image resolve + viewer using CSV when possible
   function showImage2(item) {
-    addDebugLog(`画像表示開始: ${item.name} (${item.category})`);
+    addDebugLog(`逕ｻ蜒剰�E��E�遉ｺ髢句�E�・ ${item.name} (${item.category})`);
     let imagePath = null;
     try {
       if (item && item.image && item.image.path) {
@@ -1590,52 +499,18 @@ function start() {
         if (m && m.path) imagePath = m.path;
       }
     } catch {}
-    addDebugLog(`決定した画像パス: ${imagePath || '(なし)'}`);
+    addDebugLog(`豎ｺ螳壹�E�縺溽判蜒上ヱ繧�E�: ${imagePath || '(縺�E�縺・'}`);
 
     if (imagePath) {
       els.imageTitle.textContent = item.name;
       els.mainImage.src = imagePath;
       els.mainImage.alt = item.name;
-      els.imageInfo.textContent = `${item.category} - ${item.name} (${item.color || '色不明'})`;
+      els.imageInfo.textContent = `${item.category} - ${item.name} (${item.color || '濶�E�荳肴・'})`;
       els.imageViewer.style.display = 'flex';
-      els.mainImage.onload = () => { addDebugLog(`画像読み込み成功: ${imagePath}`); };
-      els.mainImage.onerror = () => { addDebugLog(`画像読み込み失敗: ${imagePath}`); };
+      els.mainImage.onload = () => { addDebugLog(`逕ｻ蜒剰�E��E�縺�E�霎ｼ縺�E�謌仙粥: ${imagePath}`); };
+      els.mainImage.onerror = () => { addDebugLog(`逕ｻ蜒剰�E��E�縺�E�霎ｼ縺�E�螟ｱ謨・ ${imagePath}`); };
     } else {
-      addDebugLog(`画像が見つかりません: ${item.name}`);
+      addDebugLog(`逕ｻ蜒上′隕九▽縺九ｊ縺�E�縺帙ａE ${item.name}`);
     }
   }
 })();
-    // はじめる！ボタン: mokekelist_latest.txt を読み込み
-    if (els.btnStart) {
-      els.btnStart.addEventListener('click', async () => {
-        addDebugLog('btnStart clicked');
-        try {
-          showLoading('リストを読み込み中…');
-          let txt = await loadFromRelativeFile('mokekelist_latest.txt');
-          addDebugLog(`attempt latest: ${txt ? 'ok' : 'miss'}`);
-          if (!txt) {
-            // 念のためのフォールバック
-            const candidates = ['mokekelist_latest.txt','mokekelist_lastest.txt','mokekelist_20250906.txt','mokekelist.txt'];
-            for (const name of candidates) {
-              addDebugLog(`try candidate: ${name}`);
-              txt = await loadFromRelativeFile(name);
-              if (txt && txt.trim()) { lastListName = name; addDebugLog(`use: ${name}`); break; }
-            }
-          } else {
-            lastListName = 'mokekelist_latest.txt';
-          }
-          if (txt) {
-            setupListWithOptions(txt, { overwriteProgress: true });
-            addDebugLog(`parse result: items=${data.items?.length||0}`);
-            setStatus(`${data.items.length} 件を読み込みました`);
-          } else {
-            setStatus('リストファイルが見つかりませんでした');
-          }
-        } catch (e) {
-          setStatus('読み込みでエラーが発生しました');
-          addDebugLog('btnStart error: ' + e.message);
-        } finally {
-          hideLoading();
-        }
-      });
-    }
