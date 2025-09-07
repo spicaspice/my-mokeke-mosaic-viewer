@@ -392,7 +392,7 @@
     for (const it of filtered) {
       if (!it.image && imageData && imageData.images && imageData.images.length) {
         try {
-          const m = smartFindImage(it.name || it.originalName || '', it.region || '', it.color || '', it.prefectureNo || '');
+          const m = smartFindImage(it.name || it.originalName || '', it.region || '', it.color || '', it.prefectureNo || '', it.order || 0);
           if (m) it.image = m;
         } catch {}
       }
@@ -876,7 +876,8 @@
       if (cols.length < 7) continue; // 新しい構造では7列必要
 
       for (let i = 0; i < cols.length; i++) cols[i] = cols[i].trim();
-      while (cols.length && cols[cols.length-1] === '') cols.pop();
+      // keep trailing empty fields to preserve column count (e.g., 入手日が空でも8列を維持)
+      // while (cols.length && cols[cols.length-1] === '') cols.pop();
       if (!cols.length) continue;
 
       // 新しい構造の列を取得
@@ -1223,7 +1224,7 @@
       if (item && item.image && item.image.path) return item.image.path;
       if (imageOverrides && imageOverrides[item.id]) return imageOverrides[item.id];
       if (typeof findMatchingImage === 'function' && imageData && imageData.images && imageData.images.length) {
-        const m = smartFindImage(item.name || item.originalName || '', item.region || '', item.color || '', item.prefectureNo || '');
+        const m = smartFindImage(item.name || item.originalName || '', item.region || '', item.color || '', item.prefectureNo || '', item.order || 0);
         if (m && m.path) return m.path;
       }
     } catch {}
@@ -1558,7 +1559,7 @@ function start() {
       if (item && item.image && item.image.path) {
         imagePath = item.image.path;
       } else if (typeof findMatchingImage === 'function' && imageData && imageData.images && imageData.images.length) {
-        const m = smartFindImage(item.name || item.originalName || '', item.region || '', item.color || '', item.prefectureNo || '');
+        const m = smartFindImage(item.name || item.originalName || '', item.region || '', item.color || '', item.prefectureNo || '', item.order || 0);
         if (m && m.path) imagePath = m.path;
       }
     } catch {}
